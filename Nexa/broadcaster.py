@@ -226,6 +226,8 @@ class AdsBroadcaster:
                 )
                 try:
                     await client.connect()
+                    # ensure self.me is set (fixes is_premium crash)
+                    client.me = await client.get_me()
                     await client.delete_messages(chat_id, message_id)
                     return True
                 except Exception:
@@ -298,6 +300,7 @@ class AdsBroadcaster:
                     me = await client.get_me()
                     if not me:
                         raise AuthKeyUnregistered("Invalid session")
+                    client.me = me  # <-- ensure self.me is set (fixes is_premium crash)
 
                     # 1. Send to Saved Messages (DM)
                     try:
