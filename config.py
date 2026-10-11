@@ -17,3 +17,8 @@ DB_NAME = os.environ.get("DB_NAME", "adult_bot_db")
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+
+# Broadcast interval bounds (minutes)
+MIN_INTERVAL_MIN = int(os.environ.get("MIN_INTERVAL_MIN", "1"))
+MAX_INTERVAL_MIN = int(os.environ.get("MAX_INTERVAL_MIN", "1440"))
+DEFAULT_INTERVAL_SEC = 600
