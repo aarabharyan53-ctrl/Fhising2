@@ -4,9 +4,10 @@ import uuid
 from datetime import datetime, timedelta
 from pyrogram import Client
 from config import API_ID, API_HASH
-from Nexa.database import temp_sessions_col
+from Nexa.database import temp_sessions_col, ensure_db
 
-_global_stats = {'active_sessions': 0, 'pending_msgs': 0}
+_global_stats = {"active_sessions": 0, "pending_msgs": 0}
+
 
 class SessionThread:
     def __init__(self, session_id, phone):
@@ -18,20 +19,14 @@ class SessionThread:
         self.connected = False
         self.connection_error = None
         self._connected_event = threading.Event()
-        self._start_thread()
-
-    def _start_thread(self):
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
         self.thread.start()
 
     async def _init_and_connect(self):
         self.client = Client(
             name=f"session_{self.session_id}",
-            api_id=API_ID,
-            api_hash=API_HASH,
-            in_memory=True,
-            no_updates=True
-        )
+            api_id=API_ID, api_hash=API_HASH,
+            in_memory=True, no_updates=True)
         await self.client.connect()
 
     def _run_loop(self):
@@ -48,11 +43,9 @@ class SessionThread:
             self._connected_event.set()
         finally:
             try:
-                if self.loop and self.loop.is_running():
-                    self.loop.stop()
                 if self.loop and not self.loop.is_closed():
                     self.loop.close()
-            except:
+            except Exception:
                 pass
 
     def wait_for_connection(self, timeout=10):
@@ -61,28 +54,34 @@ class SessionThread:
     def execute(self, coro_func, *args, timeout=60):
         if not self.loop or not self.connected:
             raise RuntimeError("Session not connected")
+
         async def wrapper():
-            coro = coro_func(*args)
-            return await coro
+            return await coro_func(*args)
+
         future = asyncio.run_coroutine_threadsafe(wrapper(), self.loop)
         return future.result(timeout=timeout)
 
     def stop(self):
         try:
-            if self.client and self.connected:
-                asyncio.run_coroutine_threadsafe(self.client.disconnect(), self.loop).result(timeout=3)
+            if self.client and self.connected and self.loop and not self.loop.is_closed():
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        self.client.disconnect(), self.loop).result(timeout=3)
+                except Exception:
+                    pass
             if self.loop and self.loop.is_running():
                 self.loop.call_soon_threadsafe(self.loop.stop)
             if self.thread and self.thread.is_alive():
                 self.thread.join(timeout=3)
-        except:
+        except Exception:
             pass
+        self.connected = False
+
 
 class SessionManager:
     def __init__(self):
         self._sessions = {}
         self._lock = threading.Lock()
-        self._active_count = 0
 
     def create_session(self, session_id, phone):
         self.remove_session(session_id)
@@ -91,18 +90,17 @@ class SessionManager:
             session.stop()
             raise RuntimeError("Session connection timeout")
         if not session.connected:
-            error_msg = session.connection_error or "Unknown error"
+            err = session.connection_error or "Unknown error"
             session.stop()
-            raise RuntimeError(f"Failed to connect: {error_msg}")
+            raise RuntimeError(f"Failed to connect: {err}")
         with self._lock:
             self._sessions[session_id] = session
-            self._active_count = len([s for s in self._sessions.values() if s.connected])
+        ensure_db()
         if temp_sessions_col is not None:
             temp_sessions_col.update_one(
-                {'_id': session_id},
-                {'$set': {'phone': phone, 'created_at': datetime.now(), 'status': 'connected'}},
-                upsert=True
-            )
+                {"_id": session_id},
+                {"$set": {"phone": phone, "created_at": datetime.now(),
+                          "status": "connected"}}, upsert=True)
         return session
 
     def get_session(self, session_id):
@@ -110,45 +108,41 @@ class SessionManager:
             session = self._sessions.get(session_id)
             if session and session.connected and session.thread.is_alive():
                 return session
-            elif session:
+            if session:
                 self._sessions.pop(session_id, None)
+        if session:
+            session.stop()   # H7: stop leaked thread
         return None
 
     def remove_session(self, session_id):
         with self._lock:
             session = self._sessions.pop(session_id, None)
-            self._active_count = len([s for s in self._sessions.values() if s.connected])
         if session:
             session.stop()
+        ensure_db()
         if temp_sessions_col is not None:
-            temp_sessions_col.delete_one({'_id': session_id})
+            temp_sessions_col.delete_one({"_id": session_id})
 
     def cleanup_old(self, max_age_minutes=10):
+        ensure_db()
+        if temp_sessions_col is None:
+            return
         cutoff = datetime.now() - timedelta(minutes=max_age_minutes)
-        if temp_sessions_col is not None:
-            old_docs = temp_sessions_col.find({'created_at': {'$lt': cutoff}})
-            for doc in old_docs:
-                self.remove_session(doc['_id'])
-            temp_sessions_col.delete_many({'created_at': {'$lt': cutoff}})
+        for doc in list(temp_sessions_col.find({"created_at": {"$lt": cutoff}})):
+            self.remove_session(doc["_id"])
 
     def cleanup_dead_sessions(self):
         with self._lock:
-            dead_sessions = []
-            for session_id, session in list(self._sessions.items()):
-                if not session.connected or not session.thread.is_alive():
-                    dead_sessions.append(session_id)
-
-            for session_id in dead_sessions:
-                self._sessions.pop(session_id, None)
-                if temp_sessions_col is not None:
-                    temp_sessions_col.delete_one({'_id': session_id})
-
-            self._active_count = len([s for s in self._sessions.values() if s.connected])
-            return len(dead_sessions)
+            dead = [sid for sid, s in list(self._sessions.items())
+                    if not s.connected or not s.thread.is_alive()]
+        for sid in dead:
+            self.remove_session(sid)
+        return len(dead)
 
     def get_active_count(self):
         with self._lock:
-            return self._active_count
+            return len([s for s in self._sessions.values() if s.connected])
+
 
 class SessionCleaner:
     def __init__(self):
@@ -163,7 +157,7 @@ class SessionCleaner:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
-        print("🧹 Session Cleaner started (30s interval)")
+        print("🧹 Session Cleaner started")
 
     def stop(self):
         if not self._running:
@@ -178,29 +172,24 @@ class SessionCleaner:
         from Nexa.database import ads_config_col, broadcast_msgs_col
         while not self._stop_event.is_set():
             try:
-                session_manager = SessionManager()
+                # C1 FIX: use the module singleton
                 count = session_manager.cleanup_dead_sessions()
-                if count > 0:
-                    print(f"🧹 Cleaned up {count} dead sessions")
-
-                _global_stats['active_sessions'] = session_manager.get_active_count()
+                if count:
+                    print(f"🧹 Cleaned {count} dead sessions")
+                _global_stats["active_sessions"] = session_manager.get_active_count()
                 if broadcast_msgs_col is not None:
-                    _global_stats['pending_msgs'] = broadcast_msgs_col.count_documents({})
-
+                    _global_stats["pending_msgs"] = broadcast_msgs_col.count_documents({})
                 if ads_config_col is not None:
                     ads_config_col.update_one(
                         {"_id": "stats"},
-                        {"$set": {
-                            "active_sessions": _global_stats['active_sessions'],
-                            "pending_msgs": _global_stats['pending_msgs'],
-                            "last_cleanup": datetime.now()
-                        }},
-                        upsert=True
-                    )
+                        {"$set": {"active_sessions": _global_stats["active_sessions"],
+                                  "pending_msgs": _global_stats["pending_msgs"],
+                                  "last_cleanup": datetime.now()}},
+                        upsert=True)
             except Exception as e:
                 print(f"Session cleaner error: {e}")
-
             self._stop_event.wait(30)
+
 
 session_manager = SessionManager()
 session_cleaner = SessionCleaner()
