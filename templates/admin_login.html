@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Login</title><link rel="icon" href="data:,">
+<style>body{font-family:Inter,system-ui,sans-serif;background:#0a0a0f;color:#f8fafc;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
+.card{background:#16161f;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:32px;width:320px}
+h2{margin:0 0 16px;font-family:'Space Grotesk',sans-serif}
+input{width:100%;padding:12px;margin:8px 0;background:#12121a;border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#fff;box-sizing:border-box}
+button{width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:#fff;font-weight:600;cursor:pointer}
+.err{color:#ef4444;font-size:13px}</style></head>
+<body>
+<form class="card" method="POST">
+  <h2>Admin Login</h2>
+  {% if error %}<p class="err">{{ error }}</p>{% endif %}
+  <input type="password" name="password" placeholder="Password" autofocus>
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button>Enter</button>
+</form>
+</body></html>
