@@ -2,34 +2,29 @@ import os
 import asyncio
 import threading
 import uuid
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import (
-    FloodWait, BadRequest, UserDeactivated, AuthKeyUnregistered,
-    MsgIdInvalid, PeerIdInvalid, ChannelInvalid
-)
-from config import API_ID, API_HASH
-from Nexa.database import users_col, ads_config_col, broadcast_msgs_col
+from pyrogram.errors import (FloodWait, BadRequest, UserDeactivated,
+                             AuthKeyUnregistered, PeerIdInvalid, ChannelInvalid)
+from config import API_ID, API_HASH, BROADCAST_WORKERS
+from Nexa.database import (users_col, ads_config_col, broadcast_msgs_col,
+                           update_ads_config, inc_ads_config)
 
 
-def _chat_type_value(chat_type):
-    """Pyrogram ChatType can be an enum or a str — normalize to a plain string."""
-    return getattr(chat_type, "value", chat_type)
+def _chat_type_value(t):
+    return getattr(t, "value", t)
 
 
 def _clean_ads(config):
-    """Keep only ads that have a label and a valid URL."""
     out = []
     for ad in config.get("ads", []):
         label = (ad.get("label") or "").strip()
         url = (ad.get("url") or "").strip()
         if label and url.startswith(("http://", "https://")):
-            out.append({
-                "text": (ad.get("text") or "").strip(),
-                "label": label,
-                "url": url
-            })
+            out.append({"text": (ad.get("text") or "").strip(),
+                        "label": label, "url": url})
     return out
 
 
@@ -40,6 +35,8 @@ class AdsBroadcaster:
         self._stop_event = threading.Event()
         self._round_count = 0
         self._lock = threading.Lock()
+        self._pool = ThreadPoolExecutor(max_workers=BROADCAST_WORKERS,
+                                        thread_name_prefix="bc")
 
     def is_running(self):
         return self._running
@@ -47,12 +44,12 @@ class AdsBroadcaster:
     def start(self):
         with self._lock:
             if self._running:
-                return False  # prevent duplicate jobs
+                return False
             self._stop_event.clear()
             self._running = True
             self._thread = threading.Thread(target=self._run, daemon=True)
             self._thread.start()
-        print("📢 Ads Broadcaster started")
+        print("📢 Broadcaster started")
         return True
 
     def stop(self):
@@ -61,22 +58,21 @@ class AdsBroadcaster:
                 return False
             self._stop_event.set()
             self._running = False
-            thread = self._thread
-        if thread:
-            thread.join(timeout=5)
-        print("📢 Ads Broadcaster stopped (future rounds cancelled)")
+            t = self._thread
+        if t:
+            t.join(timeout=5)
+        update_ads_config({"next_broadcast_at": None})
+        print("📢 Broadcaster stopped")
         return True
 
     def _get_interval(self):
         if ads_config_col is not None:
-            config = ads_config_col.find_one({"_id": "main_config"})
-            if config:
-                return max(1, int(config.get("interval", 600)))
+            c = ads_config_col.find_one({"_id": "main_config"})
+            if c:
+                return max(1, int(c.get("interval", 600)))
         return 600
 
     def _wait(self, seconds):
-        """Wait up to `seconds`, waking every second. Returns True if stopped.
-        Re-reads the interval so live changes take effect."""
         elapsed = 0
         while not self._stop_event.is_set():
             if elapsed >= self._get_interval():
@@ -86,334 +82,227 @@ class AdsBroadcaster:
         return True
 
     def _run(self):
-        interval = self._get_interval()
-        print(f"⏳ First broadcast in {interval // 60} min {interval % 60}s...")
         while not self._stop_event.is_set():
-            # FIRST wait, THEN broadcast -> initial delay is respected
-            if self._wait(self._get_interval()):
+            secs = self._get_interval()
+            nxt = datetime.now() + timedelta(seconds=secs)
+            update_ads_config({"next_broadcast_at": nxt})
+            print(f"⏳ Next broadcast at {nxt:%H:%M:%S}")
+            if self._wait(secs):
                 break
             if self._stop_event.is_set():
                 break
             try:
                 self._run_round()
             except Exception as e:
-                print(f"Broadcast round error: {e}")
-            nxt = self._get_interval()
-            print(f"⏳ Round complete. Next in {nxt // 60} min...")
-
-    # ---------- round ----------
+                print(f"Round error: {e}")
 
     def _run_round(self):
         self._round_count += 1
-        broadcast_id = f"round_{self._round_count}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        print(f"\n{'=' * 60}\n🚀 BROADCAST ROUND #{self._round_count} ({broadcast_id})\n{'=' * 60}")
-
+        bid = f"round_{self._round_count}_{datetime.now():%Y%m%d_%H%M%S}"
+        print(f"\n{'='*50}\n🚀 ROUND #{self._round_count} ({bid})\n{'='*50}")
         self._delete_previous_messages()
 
         if users_col is None or ads_config_col is None:
-            print("❌ DB not connected")
             return
-
         config = ads_config_col.find_one({"_id": "main_config"})
         if not config or not config.get("ads_enabled", False):
-            print("❌ Ads disabled")
             return
 
         caption = (config.get("caption") or "").strip()
         ads = _clean_ads(config)
-        photo_path = config.get("photo_path")
-
-        if not caption and not ads and not photo_path:
-            print("📭 Nothing to send (no caption, ads, or image)")
+        photo = config.get("photo_path")
+        if not caption and not ads and not photo:
+            print("📭 nothing to send")
             return
 
-        raw_users = list(users_col.find({"ads_enabled": True}))
+        users = list(users_col.find({"ads_enabled": True}))
+        valid = [u for u in users if self._verify_user_session(u)]
+        for u in users:
+            if u not in valid:
+                users_col.update_one({"_id": u["_id"]},
+                                     {"$set": {"ads_enabled": False, "status": "expired"}})
 
-        users_to_send = []
-        for user in raw_users:
-            if self._verify_user_session(user):
-                users_to_send.append(user)
-            else:
-                users_col.update_one(
-                    {"_id": user["_id"]},
-                    {"$set": {"ads_enabled": False, "status": "expired"}}
-                )
-                print(f"❌ Session expired for {user.get('phone', 'Unknown')}, disabled")
-
-        if not users_to_send:
-            print("📭 No valid users to broadcast")
+        if not valid:
+            print("📭 no valid users")
             return
 
-        print(f"📨 Broadcasting to {len(users_to_send)} valid users...")
-        for user in users_to_send:
+        print(f"📨 sending to {len(valid)} users")
+        for u in valid:
             if self._stop_event.is_set():
-                print("⏹️ Broadcast stopped")
                 break
-            threading.Thread(
-                target=self._send_to_user,
-                args=(user, caption, ads, photo_path, broadcast_id),
-                daemon=True
-            ).start()
+            self._pool.submit(self._send_to_user, u, caption, ads, photo, bid)
+
+        inc_ads_config("total_broadcasts", 1)
+        update_ads_config({"last_broadcast_at": datetime.now()})
 
     def _verify_user_session(self, user):
-        user_id = user.get("user_id")
-        phone = user.get("phone", "Unknown")
-        session_string = user.get("session_string")
-
-        if not session_string:
+        ss = user.get("session_string")
+        if not ss:
             return False
 
         async def check():
-            client = Client(
-                name=f"check_{user_id}_{uuid.uuid4().hex[:6]}",
-                api_id=API_ID,
-                api_hash=API_HASH,
-                session_string=session_string,
-                in_memory=True,
-                no_updates=True
-            )
+            c = Client(name=f"chk_{uuid.uuid4().hex[:8]}", api_id=API_ID,
+                       api_hash=API_HASH, session_string=ss,
+                       in_memory=True, no_updates=True)
             try:
-                await client.connect()
-                me = await client.get_me()
-                return me is not None
+                await c.connect()
+                return (await c.get_me()) is not None
             except (AuthKeyUnregistered, UserDeactivated):
                 return False
+            except Exception:
+                return True          # M8: transient → keep
             finally:
                 try:
-                    await client.disconnect()
+                    await c.disconnect()
                 except Exception:
                     pass
 
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(check())
+            r = loop.run_until_complete(check())
             loop.close()
-            return result
-        except Exception as e:
-            print(f"⚠️ Session check failed for {phone}: {e}")
-            return False
+            return r
+        except Exception:
+            return True
 
     def _delete_previous_messages(self):
         if broadcast_msgs_col is None:
             return
-
-        old_msgs = list(broadcast_msgs_col.find())
-        if not old_msgs:
-            print("📝 No old messages to delete")
+        old = list(broadcast_msgs_col.find())
+        if not old:
             return
+        print(f"🗑️ deleting {len(old)} old messages")
 
-        print(f"🗑️ Deleting {len(old_msgs)} old broadcast messages...")
-        deleted_count = 0
+        async def wipe():
+            c = Client(name=f"del_{uuid.uuid4().hex[:8]}", api_id=API_ID,
+                       api_hash=API_HASH, session_string=old[0]["session_string"],
+                       in_memory=True, no_updates=True)
+            try:
+                await c.connect()
+                c.me = await c.get_me()
+                return True
+            finally:
+                pass
 
-        for msg_data in old_msgs:
-            session_string = msg_data.get("session_string")
-            chat_id = msg_data.get("chat_id")
-            message_id = msg_data.get("message_id")
-
-            if not all([session_string, chat_id, message_id]):
-                broadcast_msgs_col.delete_one({"_id": msg_data["_id"]})
-                continue
-
-            async def delete_msg():
-                client = Client(
-                    name=f"del_{uuid.uuid4().hex[:8]}",
-                    api_id=API_ID,
-                    api_hash=API_HASH,
-                    session_string=session_string,
-                    in_memory=True,
-                    no_updates=True
-                )
+        for m in old:
+            async def one(m=m):
+                c = Client(name=f"del_{uuid.uuid4().hex[:8]}", api_id=API_ID,
+                           api_hash=API_HASH, session_string=m["session_string"],
+                           in_memory=True, no_updates=True)
                 try:
-                    await client.connect()
-                    # ensure self.me is set (fixes is_premium crash)
-                    client.me = await client.get_me()
-                    await client.delete_messages(chat_id, message_id)
+                    await c.connect()
+                    c.me = await c.get_me()
+                    await c.delete_messages(m["chat_id"], m["message_id"])
                     return True
                 except Exception:
                     return False
                 finally:
                     try:
-                        await client.disconnect()
+                        await c.disconnect()
                     except Exception:
                         pass
 
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                success = loop.run_until_complete(delete_msg())
+                ok = loop.run_until_complete(one())
                 loop.close()
-                if success:
-                    deleted_count += 1
-                    broadcast_msgs_col.delete_one({"_id": msg_data["_id"]})
+                if ok:
+                    broadcast_msgs_col.delete_one({"_id": m["_id"]})
             except Exception as e:
-                print(f"⚠️ Failed to delete message: {e}")
+                print(f"⚠️ delete failed: {e}")
 
-        print(f"✅ Deleted {deleted_count} old messages")
-
-    async def _send_layout(self, client, chat_id, caption, ads, photo_path):
-        """Send the main message, then each ad as its own message with the
-        button directly below its own text. Returns list of message ids."""
+    async def _send_layout(self, client, chat_id, caption, ads, photo):
         sent = []
-
-        # 1) Main message (photo + caption, or text)
-        if photo_path and os.path.exists(photo_path):
-            m = await client.send_photo(chat_id, photo=photo_path, caption=caption or "")
+        if photo and os.path.exists(photo):
+            m = await client.send_photo(chat_id, photo=photo, caption=caption or "")
         else:
             m = await client.send_message(chat_id, caption or " ")
         sent.append(m.id)
-
-        # 2) Each ad section beneath the main message
         for ad in ads:
-            text = ad["text"] or ad["label"]
             kb = InlineKeyboardMarkup([[InlineKeyboardButton(ad["label"], url=ad["url"])]])
-            m = await client.send_message(chat_id, text, reply_markup=kb)
+            m = await client.send_message(chat_id, ad["text"] or ad["label"], reply_markup=kb)
             sent.append(m.id)
-
         return sent
 
-    def _send_to_user(self, user, caption, ads, photo_path, broadcast_id):
-        user_id = user.get("user_id")
-        phone = user.get("phone", "Unknown")
-        session_string = user.get("session_string")
-
-        if not session_string:
-            print(f"⚠️ No session string for {phone}")
+    def _send_to_user(self, user, caption, ads, photo, bid):
+        uid, phone, ss = user.get("user_id"), user.get("phone", "?"), user.get("session_string")
+        if not ss:
             return
+        sent = []
 
-        sent_messages = []  # list of (chat_id, message_id)
-
-        try:
-            async def send_ad():
-                client = Client(
-                    name=f"temp_{user_id}_{uuid.uuid4().hex[:8]}",
-                    api_id=API_ID,
-                    api_hash=API_HASH,
-                    session_string=session_string,
-                    in_memory=True,
-                    no_updates=True
-                )
+        async def work():
+            c = Client(name=f"bc_{uid}_{uuid.uuid4().hex[:8]}", api_id=API_ID,
+                       api_hash=API_HASH, session_string=ss,
+                       in_memory=True, no_updates=True)
+            try:
+                await c.connect()
+                me = await c.get_me()
+                if not me:
+                    raise AuthKeyUnregistered("bad session")
+                c.me = me  # fixes is_premium crash
 
                 try:
-                    await client.connect()
-
-                    me = await client.get_me()
-                    if not me:
-                        raise AuthKeyUnregistered("Invalid session")
-                    client.me = me  # <-- ensure self.me is set (fixes is_premium crash)
-
-                    # 1. Send to Saved Messages (DM)
-                    try:
-                        ids = await self._send_layout(client, "me", caption, ads, photo_path)
-                        for mid in ids:
-                            sent_messages.append(("me", mid))
-                        print(f"✅ DM sent to {phone}")
-                    except Exception as e:
-                        print(f"❌ DM failed for {phone}: {e}")
-
-                    # 2. Send to Joined Groups
-                    try:
-                        group_count = 0
-
-                        async for dialog in client.get_dialogs():
-                            if self._stop_event.is_set():
-                                break
-
-                            if dialog is None or dialog.chat is None:
-                                continue
-
-                            # enum-safe check (fixes "0 groups")
-                            if _chat_type_value(dialog.chat.type) not in ("group", "supergroup"):
-                                continue
-
-                            chat_id = dialog.chat.id
-                            try:
-                                ids = await self._send_layout(client, chat_id, caption, ads, photo_path)
-                                for mid in ids:
-                                    sent_messages.append((chat_id, mid))
-                                group_count += 1
-                                await asyncio.sleep(3)
-
-                            except (PeerIdInvalid, ChannelInvalid, ValueError) as e:
-                                print(f"⚠️ Skipping bad peer {chat_id} for {phone}: {e}")
-                                continue
-                            except FloodWait as fw:
-                                print(f"⏳ FloodWait in group for {phone}: {fw.value}s")
-                                await asyncio.sleep(min(fw.value, 30))
-                            except BadRequest as e:
-                                print(f"⚠️ BadRequest in group for {phone}: {e}")
-                                continue
-                            except Exception as e:
-                                print(f"⚠️ Group send failed for {phone} in {chat_id}: {e}")
-                                continue
-
-                        print(f"✅ Sent to {group_count} groups for {phone}")
-
-                    except Exception as e:
-                        print(f"❌ Groups failed for {phone}: {e}")
-
-                    if users_col is not None and sent_messages:
-                        users_col.update_one(
-                            {"_id": user["_id"]},
-                            {
-                                "$set": {
-                                    "last_ad_time": datetime.now(),
-                                    "last_broadcast_id": broadcast_id
-                                },
-                                "$inc": {"total_ads_sent": len(sent_messages)}
-                            }
-                        )
-
-                except UserDeactivated:
-                    raise
-                except AuthKeyUnregistered:
-                    raise
+                    for mid in await self._send_layout(c, "me", caption, ads, photo):
+                        sent.append(("me", mid))
                 except Exception as e:
-                    print(f"❌ Error for {phone}: {e}")
-                    raise
-                finally:
-                    try:
-                        await client.disconnect()
-                    except Exception:
-                        pass
+                    print(f"❌ DM {phone}: {e}")
 
+                try:
+                    n = 0
+                    async for d in c.get_dialogs():
+                        if self._stop_event.is_set():
+                            break
+                        if not d or not d.chat:
+                            continue
+                        if _chat_type_value(d.chat.type) not in ("group", "supergroup"):
+                            continue
+                        try:
+                            for mid in await self._send_layout(c, d.chat.id, caption, ads, photo):
+                                sent.append((d.chat.id, mid))
+                            n += 1
+                            await asyncio.sleep(3)
+                        except (PeerIdInvalid, ChannelInvalid, ValueError):
+                            continue
+                        except FloodWait as fw:
+                            await asyncio.sleep(min(fw.value, 30))
+                        except Exception as e:
+                            print(f"⚠️ group {d.chat.id}: {e}")
+                    print(f"✅ {phone}: {n} groups")
+                except Exception as e:
+                    print(f"❌ groups {phone}: {e}")
+
+                if sent:
+                    users_col.update_one(
+                        {"_id": user["_id"]},
+                        {"$set": {"last_ad_time": datetime.now(), "last_broadcast_id": bid},
+                         "$inc": {"deliveries": 1}})
+                else:
+                    users_col.update_one({"_id": user["_id"]}, {"$inc": {"failures": 1}})
+            finally:
+                try:
+                    await c.disconnect()
+                except Exception:
+                    pass
+
+        try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(send_ad())
+            loop.run_until_complete(work())
             loop.close()
-
-            if broadcast_msgs_col is not None and sent_messages:
-                for chat_id, mid in sent_messages:
-                    broadcast_msgs_col.insert_one({
-                        "user_id": user_id,
-                        "phone": phone,
-                        "broadcast_id": broadcast_id,
-                        "chat_id": str(chat_id),
-                        "message_id": mid,
-                        "session_string": session_string,
-                        "sent_at": datetime.now()
-                    })
-
-        except UserDeactivated:
-            if users_col is not None:
-                users_col.update_one(
-                    {"_id": user["_id"]},
-                    {"$set": {"ads_enabled": False, "status": "deactivated"}}
-                )
-            print(f"❌ User {phone} deactivated")
-        except AuthKeyUnregistered:
-            if users_col is not None:
-                users_col.update_one(
-                    {"_id": user["_id"]},
-                    {"$set": {"ads_enabled": False, "status": "expired"}}
-                )
-            print(f"❌ Session expired for {phone}")
-        except FloodWait as e:
-            print(f"⏳ Flood wait for {phone}: {e.value}s")
-        except PeerIdInvalid as e:
-            print(f"❌ Peer ID invalid for {phone}: {e}")
+        except (UserDeactivated, AuthKeyUnregistered):
+            users_col.update_one({"_id": user["_id"]},
+                                 {"$set": {"ads_enabled": False, "status": "expired"}})
         except Exception as e:
-            print(f"❌ Failed to send to {phone}: {e}")
+            print(f"❌ {phone}: {e}")
+
+        if broadcast_msgs_col is not None and sent:
+            broadcast_msgs_col.insert_many([
+                {"user_id": uid, "phone": phone, "broadcast_id": bid,
+                 "chat_id": str(cid), "message_id": mid,
+                 "session_string": ss, "sent_at": datetime.now()}
+                for cid, mid in sent])
 
 
 ads_broadcaster = AdsBroadcaster()
