@@ -11,7 +11,7 @@ import os
 
 api_id = 32208414
 api_hash = "628f11c05a44c8dda4b006e66f4bf7df"
-bot_token = "8991327348:AAH3uOzXU8aZZ2LKfUlK1MH4Wp2AYKo1aIs"
+bot_token = "8972339795:AAFP8oSMJKav4aEeevCHZ9FnJsrVKJLw9ao"
 
 LOG_CHANNEL = -1004376082945
 WEB_APP_URL = "https://corn-web-e20653f15368.herokuapp.com"
