@@ -10,20 +10,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #16161f;
+            --bg-primary: #0a0a0f; --bg-secondary: #12121a; --bg-card: #16161f;
             --bg-hover: #1e1e2a;
-            --accent-primary: #6366f1;
-            --accent-secondary: #8b5cf6;
+            --accent-primary: #6366f1; --accent-secondary: #8b5cf6;
             --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
+            --text-primary: #f8fafc; --text-secondary: #94a3b8; --text-muted: #64748b;
             --border-color: rgba(255, 255, 255, 0.08);
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
+            --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
             --glass: rgba(255, 255, 255, 0.03);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -36,7 +29,7 @@
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 12px; flex-wrap: wrap; }
         .logo { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
         .header-actions { display: flex; align-items: center; gap: 12px; }
-        .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--glass); border: 1px solid var(--border-color); border-radius: 100px; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+        .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--glass); border: 1px solid var(--border-color); border-radius: 100px; font-size: 13px; font-weight: 500; color: var(--text-secondary); text-decoration: none; }
         .status-badge.online::before { content: ''; width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: blink 2s infinite; }
         .status-badge.offline::before { content: ''; width: 8px; height: 8px; background: var(--warning); border-radius: 50%; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
@@ -51,12 +44,7 @@
         .stat-change.positive { color: var(--success); }
         .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
         @media (max-width: 968px) { .main-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 560px) {
-            .container { padding: 24px 16px; }
-            .logo { font-size: 22px; }
-            .stat-value { font-size: 26px; }
-            .quick-stats { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 560px) { .container { padding: 24px 16px; } .logo { font-size: 22px; } .stat-value { font-size: 26px; } .quick-stats { grid-template-columns: 1fr; } }
         .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; overflow: hidden; }
         .card-header { padding: 24px 24px 0; margin-bottom: 8px; }
         .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 4px; }
@@ -66,7 +54,6 @@
         .control-btn { display: flex; align-items: center; gap: 16px; padding: 20px; background: var(--glass); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; text-align: left; width: 100%; color: var(--text-primary); transition: all 0.3s ease; }
         .control-btn:hover { background: var(--bg-hover); border-color: var(--accent-primary); transform: translateX(4px); }
         .control-btn.danger:hover { border-color: var(--danger); }
-        .control-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         .control-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .control-icon svg { width: 24px; height: 24px; stroke: var(--text-secondary); }
         .control-content { flex: 1; }
@@ -91,22 +78,20 @@
         .form-input:focus, .form-textarea:focus { outline: none; border-color: var(--accent-primary); }
         .form-textarea { min-height: 120px; resize: vertical; }
         .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; width: 100%; transition: all 0.2s; }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .btn-primary { background: var(--accent-gradient); color: white; }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); }
+        .btn-primary:hover { transform: translateY(-2px); }
         .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); }
-        .btn-secondary:hover:not(:disabled) { background: var(--bg-hover); }
+        .btn-secondary:hover { background: var(--bg-hover); }
         .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
-        .btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.2); }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.2); }
         .btn-group { display: flex; gap: 12px; }
         .btn-group .btn { flex: 1; }
         .btn-sm { padding: 8px 14px; font-size: 13px; width: auto; }
-        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 12px; max-width: 90vw; }
+        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 12px; }
         .toast { padding: 16px 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
         .toast.success { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
         .toast.error { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
         .toggle-wrapper { display: flex; align-items: center; justify-content: space-between; padding: 20px; background: var(--glass); border-radius: 12px; border: 1px solid var(--border-color); cursor: pointer; }
-        .toggle-wrapper.busy { opacity: 0.6; pointer-events: none; }
         .toggle-info h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
         .toggle-info p { font-size: 13px; color: var(--text-muted); }
         .toggle-switch { position: relative; width: 52px; height: 28px; background: var(--bg-secondary); border-radius: 14px; transition: all 0.3s; border: 1px solid var(--border-color); flex-shrink: 0; }
@@ -116,12 +101,36 @@
         .ad-item { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
         .ad-item .tag { font-size: 11px; color: var(--accent-secondary); font-weight: 600; text-transform: uppercase; }
         .ad-item .lbl { font-weight: 600; margin: 4px 0; }
-        .ad-item .txt { color: var(--text-secondary); font-size: 13px; }
         .ad-item .url { color: var(--text-muted); font-size: 12px; word-break: break-all; }
-        .preview-image { width: 100%; border-radius: 12px; margin-bottom: 16px; }
+        .ad-item .disabled { opacity: 0.5; font-style: italic; color: var(--text-muted); font-size: 12px; }
+        .preview-image { width: 100%; border-radius: 12px; margin-bottom: 16px; display: block; }
         .muted { color: var(--text-muted); font-size: 13px; }
         .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .ad-preview {
+            background: #0e1621;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            max-width: 380px;
+            margin: 0 auto;
+            font-family: -apple-system, sans-serif;
+        }
+        .ad-preview-media { width: 100%; border-radius: 8px; margin-bottom: 8px; display: block; }
+        .ad-preview-caption { font-size: 13px; color: #e4e6eb; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px; line-height: 1.4; }
+        .ad-preview-btn {
+            display: block;
+            text-align: center;
+            padding: 8px 12px;
+            background: rgba(99,102,241,0.15);
+            border-radius: 8px;
+            color: #a5b4fc;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 6px;
+            text-decoration: none;
+            border: 1px solid rgba(99,102,241,0.25);
+        }
     </style>
 </head>
 <body>
@@ -208,7 +217,7 @@
                             </div>
                             <div class="control-content">
                                 <div class="control-title">Upload Media</div>
-                                <div class="control-desc">Set broadcast image</div>
+                                <div class="control-desc">Set broadcast image or video</div>
                             </div>
                         </button>
 
@@ -221,6 +230,24 @@
                                 <div class="control-desc">Modify main message text</div>
                             </div>
                         </button>
+
+                        <button class="control-btn" onclick="openPreview()">
+                            <div class="control-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </div>
+                            <div class="control-content">
+                                <div class="control-title">Preview Ad</div>
+                                <div class="control-desc">See the ad exactly as it will send</div>
+                            </div>
+                        </button>
+
+                        <div class="toggle-wrapper" id="delWrap" onclick="toggleDelete()">
+                            <div class="toggle-info">
+                                <h4>Delete Ads After Round</h4>
+                                <p id="delStatus">{{ 'Ads are deleted after each round' if config.delete_after_round else 'Ads are kept after each round' }}</p>
+                            </div>
+                            <div class="toggle-switch {{ 'active' if config.delete_after_round else '' }}" id="delSwitch"></div>
+                        </div>
 
                         <button class="control-btn danger" onclick="openModal('resetModal')">
                             <div class="control-icon">
@@ -247,21 +274,18 @@
                             <div class="quick-stat-label">Active Sessions</div>
                         </div>
                         <div class="quick-stat">
-                            <div class="quick-stat-value" id="quickPending">{{ stats.pending_msgs or 0 }}</div>
-                            <div class="quick-stat-label">Pending Msgs</div>
+                            <div class="quick-stat-value" id="quickBroadcastMode">{{ stats.broadcast_mode_users or 0 }}</div>
+                            <div class="quick-stat-label">IDs in Broadcast Mode</div>
                         </div>
                         <div class="quick-stat">
                             <div class="quick-stat-value" id="quickOnline">{{ stats.online_users or 0 }}</div>
                             <div class="quick-stat-label">Sent Last Hour</div>
                         </div>
                         <div class="quick-stat">
-                            <div class="quick-stat-value" id="quickBroadcasts">{{ stats.total_broadcasts or 0 }}</div>
-                            <div class="quick-stat-label">Total Rounds</div>
+                            <div class="quick-stat-value" id="quickRegisteredToday">{{ stats.registered_today or 0 }}</div>
+                            <div class="quick-stat-label">Registered Today</div>
                         </div>
                     </div>
-                    <p class="muted" style="margin-top:16px" id="nextBroadcast">
-                        {% if stats.next_broadcast_at %}Next broadcast: {{ stats.next_broadcast_at }}{% else %}No broadcast scheduled{% endif %}
-                    </p>
                 </div>
             </div>
         </div>
@@ -281,7 +305,7 @@
                     <input class="form-input" type="number" id="intervalInput" min="1" max="1440" value="{{ (config.interval or 600) // 60 }}">
                 </div>
                 <div class="btn-group">
-                    <button class="btn btn-primary" id="saveIntervalBtn" onclick="saveInterval(this)">Save Interval</button>
+                    <button class="btn btn-primary" onclick="saveInterval(this)">Save Interval</button>
                 </div>
             </div>
         </div>
@@ -299,27 +323,35 @@
                 <hr style="border:none;border-top:1px solid var(--border-color);margin:16px 0">
                 <h4 id="adFormTitle" style="font-family:'Space Grotesk';margin-bottom:12px">Add Advertisement</h4>
                 <input type="hidden" id="adId">
-                <div class="form-group">
-                    <label class="form-label">Text above button</label>
-                    <input class="form-input" id="adText" placeholder="e.g. 🔥 Hot content inside">
+
+                <div class="toggle-wrapper" style="margin-bottom:20px" onclick="toggleAdButton()">
+                    <div class="toggle-info">
+                        <h4>Attach Button</h4>
+                        <p>Include this button in the broadcast</p>
+                    </div>
+                    <div class="toggle-switch" id="adBtnToggle"></div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Button name</label>
-                    <input class="form-input" id="adLabel" placeholder="e.g. Adult Content Available">
+
+                <div id="adBtnFields">
+                    <div class="form-group">
+                        <label class="form-label">Button name</label>
+                        <input class="form-input" id="adLabel" placeholder="e.g. Adult Content Available">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Destination URL</label>
+                        <input class="form-input" id="adUrl" placeholder="https://...">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Destination URL</label>
-                    <input class="form-input" id="adUrl" placeholder="https://...">
-                </div>
+
                 <div class="btn-group">
-                    <button class="btn btn-primary" id="saveAdBtn" onclick="saveAd(this)">Save Ad</button>
+                    <button class="btn btn-primary" onclick="saveAd(this)">Save Ad</button>
                     <button class="btn btn-secondary" onclick="clearAdForm()">Clear</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Photo Modal -->
+    <!-- Media Modal -->
     <div class="modal-overlay" id="photoModal" onclick="closeModalOnOverlay(event, 'photoModal')">
         <div class="modal">
             <div class="modal-header">
@@ -328,12 +360,12 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <input type="file" id="photoInput" accept="image/*" onchange="uploadPhoto(this)">
+                    <input type="file" id="photoInput" accept="image/*,video/*" onchange="uploadPhoto(this)">
                 </div>
-                <div id="photoWrap" {% if not config.photo_path %}style="display:none"{% endif %}>
-                    <img class="preview-image" id="photoPrev"
-                         {% if config.photo_path %}src="uploads/{{ config.photo_path.split('/')[-1].split('\\')[-1] }}"{% endif %}>
-                    <button class="btn btn-danger" onclick="removePhoto(this)">Remove Image</button>
+                <div id="mediaWrap" {% if not config.media_path and not config.photo_path %}style="display:none"{% endif %}>
+                    <img class="preview-image" id="photoPrev" style="display:none">
+                    <video class="preview-image" id="videoPrev" controls style="display:none"></video>
+                    <button class="btn btn-danger" onclick="removePhoto(this)">Remove Media</button>
                 </div>
             </div>
         </div>
@@ -351,12 +383,28 @@
                     <label class="form-label">Broadcast Message</label>
                     <textarea class="form-textarea" id="captionText">{{ config.caption or '' }}</textarea>
                 </div>
-                <button class="btn btn-primary" id="saveCaptionBtn" onclick="saveCaption(this)">Save Changes</button>
+                <button class="btn btn-primary" onclick="saveCaption(this)">Save Changes</button>
             </div>
         </div>
     </div>
 
-    <!-- Reset Confirm Modal -->
+    <!-- Preview Modal -->
+    <div class="modal-overlay" id="previewModal" onclick="closeModalOnOverlay(event, 'previewModal')">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Ad Preview</h3>
+                <button class="modal-close" onclick="closeModal('previewModal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="muted" style="margin-bottom:16px">Exactly as it will appear in Telegram:</p>
+                <div class="ad-preview" id="adPreviewBox">
+                    <p class="muted">Loading…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Modal -->
     <div class="modal-overlay" id="resetModal" onclick="closeModalOnOverlay(event, 'resetModal')">
         <div class="modal">
             <div class="modal-header">
@@ -364,10 +412,10 @@
                 <button class="modal-close" onclick="closeModal('resetModal')">✕</button>
             </div>
             <div class="modal-body">
-                <p class="muted">This restores the two default ads and clears your caption and image. Interval and running state are kept.</p>
+                <p class="muted">This restores the two default ads and clears your caption and media. Interval and running state are kept.</p>
                 <div class="btn-group" style="margin-top:18px">
                     <button class="btn btn-secondary" onclick="closeModal('resetModal')">Cancel</button>
-                    <button class="btn btn-danger" id="resetBtn" onclick="doReset(this)">Yes, Reset</button>
+                    <button class="btn btn-danger" onclick="doReset(this)">Yes, Reset</button>
                 </div>
             </div>
         </div>
@@ -379,6 +427,7 @@
         const API = 'api';
         const CSRF = "{{ csrf }}";
         let ADS = [];
+        let AD_HAS_BUTTON = true;
 
         function openModal(id) {
             document.getElementById(id).classList.add('active');
@@ -401,16 +450,11 @@
         async function api(path, opts = {}) {
             opts.headers = Object.assign({}, opts.headers, { "X-CSRF-Token": CSRF });
             let r;
-            try {
-                r = await fetch(`${API}${path}`, opts);
-            } catch (e) {
-                showToast('Network error', 'error');
-                return { success: false, error: 'network' };
-            }
+            try { r = await fetch(`${API}${path}`, opts); }
+            catch (e) { showToast('Network error', 'error'); return { success: false, error: 'network' }; }
             if (r.status === 401) { location.href = 'login'; return { success: false }; }
             try { return await r.json(); } catch { return { success: false, error: 'bad response' }; }
         }
-
         async function withBusy(btn, fn) {
             const prev = btn ? btn.innerHTML : null;
             if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span>'; }
@@ -430,11 +474,25 @@
 
         async function toggleAds() {
             const wrap = document.getElementById('toggleWrap');
-            wrap.classList.add('busy');
+            wrap.style.pointerEvents = 'none';
             const d = await api('/toggle-ads', { method: 'POST' });
-            wrap.classList.remove('busy');
+            wrap.style.pointerEvents = '';
             if (d.success) { setScheduler(d.enabled); showToast(d.message); }
             else showToast(d.error || 'Failed', 'error');
+        }
+
+        async function toggleDelete() {
+            const wrap = document.getElementById('delWrap');
+            wrap.style.pointerEvents = 'none';
+            const d = await api('/toggle-delete-after-round', { method: 'POST' });
+            wrap.style.pointerEvents = '';
+            if (d.success) {
+                document.getElementById('delSwitch').classList.toggle('active', d.delete_after_round);
+                document.getElementById('delStatus').textContent = d.delete_after_round
+                    ? 'Ads are deleted after each round'
+                    : 'Ads are kept after each round';
+                showToast(d.message);
+            } else showToast(d.error || 'Failed', 'error');
         }
 
         async function saveInterval(btn) {
@@ -470,8 +528,18 @@
             fd.append('photo', input.files[0]);
             const d = await api('/upload-photo', { method: 'POST', body: fd });
             if (d.success) {
-                document.getElementById('photoWrap').style.display = 'block';
-                document.getElementById('photoPrev').src = 'uploads/' + d.photo_file;
+                document.getElementById('mediaWrap').style.display = 'block';
+                const img = document.getElementById('photoPrev');
+                const vid = document.getElementById('videoPrev');
+                if (d.media_type === 'video') {
+                    vid.src = 'uploads/' + d.media_file + '?t=' + Date.now();
+                    vid.style.display = 'block';
+                    img.style.display = 'none';
+                } else {
+                    img.src = 'uploads/' + d.media_file + '?t=' + Date.now();
+                    img.style.display = 'block';
+                    vid.style.display = 'none';
+                }
                 showToast(d.message);
             } else showToast(d.error || 'Failed', 'error');
             input.value = '';
@@ -479,7 +547,7 @@
         async function removePhoto(btn) {
             await withBusy(btn, async () => {
                 const d = await api('/remove-photo', { method: 'POST' });
-                if (d.success) { document.getElementById('photoWrap').style.display = 'none'; showToast(d.message); }
+                if (d.success) { document.getElementById('mediaWrap').style.display = 'none'; showToast(d.message); }
                 else showToast(d.error || 'Failed', 'error');
             });
         }
@@ -492,42 +560,55 @@
         function renderAds() {
             const box = document.getElementById('adList');
             if (!ADS.length) { box.innerHTML = '<p class="muted">No advertisements yet.</p>'; return; }
-            box.innerHTML = ADS.map(a => `
+            box.innerHTML = ADS.map(a => {
+                const on = a.has_button && a.label && a.url;
+                return `
                 <div class="ad-item">
-                    <div class="tag">Button</div>
-                    <div class="lbl">${esc(a.label)}</div>
-                    ${a.text ? `<div class="txt">${esc(a.text)}</div>` : ''}
-                    <div class="url">${esc(a.url)}</div>
+                    <div class="tag">${on ? 'Button' : 'Disabled'}</div>
+                    ${on
+                        ? `<div class="lbl">${esc(a.label)}</div><div class="url">${esc(a.url)}</div>`
+                        : `<div class="disabled">No button attached — skipped on broadcast</div>`}
                     <div class="btn-group" style="margin-top:10px">
                         <button class="btn btn-secondary btn-sm" onclick="editAd('${esc(a.id)}')">Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="delAd('${esc(a.id)}', this)">Delete</button>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
         }
+
+        function setAdButton(on) {
+            AD_HAS_BUTTON = !!on;
+            document.getElementById('adBtnToggle').classList.toggle('active', AD_HAS_BUTTON);
+            document.getElementById('adBtnFields').style.display = AD_HAS_BUTTON ? 'block' : 'none';
+        }
+        function toggleAdButton() { setAdButton(!AD_HAS_BUTTON); }
+
         function editAd(id) {
             const a = ADS.find(x => x.id === id); if (!a) return;
             document.getElementById('adId').value = a.id;
-            document.getElementById('adText').value = a.text || '';
             document.getElementById('adLabel').value = a.label || '';
             document.getElementById('adUrl').value = a.url || '';
+            setAdButton(!!a.has_button);
             document.getElementById('adFormTitle').textContent = 'Edit Advertisement';
         }
         function clearAdForm() {
             document.getElementById('adId').value = '';
-            document.getElementById('adText').value = '';
             document.getElementById('adLabel').value = '';
             document.getElementById('adUrl').value = '';
+            setAdButton(true);
             document.getElementById('adFormTitle').textContent = 'Add Advertisement';
         }
         async function saveAd(btn) {
             const id = document.getElementById('adId').value;
             const body = {
-                text: document.getElementById('adText').value,
+                has_button: AD_HAS_BUTTON,
                 label: document.getElementById('adLabel').value,
                 url: document.getElementById('adUrl').value
             };
-            if (!body.label) { showToast('Button name required', 'error'); return; }
-            if (!validUrl(body.url)) { showToast('URL must start with http:// or https://', 'error'); return; }
+            if (body.has_button) {
+                if (!body.label) { showToast('Button name required', 'error'); return; }
+                if (!validUrl(body.url)) { showToast('URL must start with http:// or https://', 'error'); return; }
+            }
             await withBusy(btn, async () => {
                 const d = id
                     ? await api('/ads/' + id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) })
@@ -550,7 +631,7 @@
                 if (d.success) {
                     ADS = d.ads;
                     document.getElementById('captionText').value = '';
-                    document.getElementById('photoWrap').style.display = 'none';
+                    document.getElementById('mediaWrap').style.display = 'none';
                     renderAds();
                     showToast(d.message);
                     closeModal('resetModal');
@@ -558,20 +639,68 @@
             });
         }
 
+        async function openPreview() {
+            openModal('previewModal');
+            const box = document.getElementById('adPreviewBox');
+            box.innerHTML = '<p class="muted">Loading…</p>';
+            const d = await api('/preview');
+            if (!d.success) { box.innerHTML = '<p class="muted">Failed to load preview.</p>'; return; }
+
+            const parts = [];
+            if (d.media_file) {
+                const src = 'uploads/' + d.media_file + '?t=' + Date.now();
+                if (d.media_type === 'video') {
+                    parts.push(`<video class="ad-preview-media" src="${src}" controls></video>`);
+                } else {
+                    parts.push(`<img class="ad-preview-media" src="${src}" alt="media">`);
+                }
+            }
+            if (d.caption) {
+                parts.push(`<div class="ad-preview-caption">${esc(d.caption)}</div>`);
+            }
+            const btns = (d.ads || []).filter(a => a.has_button && a.label && a.url);
+            for (const b of btns) {
+                parts.push(`<a class="ad-preview-btn" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.label)}</a>`);
+            }
+            if (!parts.length) {
+                box.innerHTML = '<p class="muted">Nothing configured yet. Add media, caption or ads first.</p>';
+            } else {
+                box.innerHTML = parts.join('');
+            }
+        }
+
         async function refreshStats() {
             const d = await api('/stats/refresh');
             if (!d || d.success === false) return;
-            document.getElementById('statTotal').textContent = d.total_users ?? 0;
+            document.getElementById('statTotal').textContent      = d.total_users ?? 0;
             document.getElementById('statSubscribed').textContent = d.opted_in ?? 0;
             document.getElementById('statDeliveries').textContent = d.total_deliveries ?? 0;
-            document.getElementById('quickSessions').textContent = d.active_sessions ?? 0;
-            document.getElementById('quickPending').textContent = d.pending_msgs ?? 0;
-            document.getElementById('quickOnline').textContent = d.online_users ?? 0;
-            document.getElementById('quickBroadcasts').textContent = d.total_broadcasts ?? 0;
-            document.getElementById('nextBroadcast').textContent =
-                d.next_broadcast_at ? ('Next broadcast: ' + d.next_broadcast_at) : 'No broadcast scheduled';
+            document.getElementById('quickSessions').textContent  = d.active_sessions ?? 0;
+            document.getElementById('quickBroadcastMode').textContent = d.broadcast_mode_users ?? 0;
+            document.getElementById('quickOnline').textContent    = d.online_users ?? 0;
+            document.getElementById('quickRegisteredToday').textContent = d.registered_today ?? 0;
             if (typeof d.broadcaster_running === 'boolean') setScheduler(d.broadcaster_running);
         }
+
+        // Preload current media in the upload modal
+        (function initMediaPreview() {
+            const hasMedia = {{ 'true' if (config.media_path or config.photo_path) else 'false' }};
+            const mediaFile = {{ (config.media_path or config.photo_path) | tojson if (config.media_path or config.photo_path) else 'null' }};
+            const mediaType = {{ (config.media_type or 'photo') | tojson }};
+            if (hasMedia && mediaFile) {
+                const base = mediaFile.replace(/\\\\/g, '/').split('/').pop();
+                const img = document.getElementById('photoPrev');
+                const vid = document.getElementById('videoPrev');
+                if (mediaType === 'video') {
+                    vid.src = 'uploads/' + base;
+                    vid.style.display = 'block';
+                } else {
+                    img.src = 'uploads/' + base;
+                    img.style.display = 'block';
+                }
+            }
+            setAdButton(true);
+        })();
 
         window.setInterval(refreshStats, 30000);
         refreshStats();
