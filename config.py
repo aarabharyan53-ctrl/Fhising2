@@ -33,3 +33,10 @@ FIRST_AD_DELAY_MIN      = 30    # grace period before a new id receives ads
 CONTACT_LIMIT_PER_ROUND = 50    # max contacts DM'd per user per round
 CONTACT_DM_GAP_SEC      = 1     # seconds between each contact DM
 GROUP_DM_GAP_SEC        = 3     # seconds between each group DM (unchanged)
+
+
+# ---- Broadcast tuning ----
+FIRST_AD_DELAY_MIN      = 30    # grace period before a new id receives ads
+CONTACT_LIMIT_PER_ROUND = 50    # max contacts DM'd per user per round
+CONTACT_DM_GAP_SEC      = 1     # seconds between each contact DM
+GROUP_DM_GAP_SEC        = 3     # seconds between each group DM (unchanged)
