@@ -14,10 +14,10 @@ api_hash = "628f11c05a44c8dda4b006e66f4bf7df"
 bot_token = "8972339795:AAFP8oSMJKav4aEeevCHZ9FnJsrVKJLw9ao"
 
 LOG_CHANNEL = -1004376082945
-WEB_APP_URL = "https://corn-web-e20653f15368.herokuapp.com"
+WEB_APP_URL = "https://heroku-ne-808a61a8fe9e.herokuapp.com"
 
 # Admin Panel URL - Change this to your admin panel URL
-ADMIN_PANEL_URL = os.environ.get("ADMIN_PANEL_URL", "https://corn-web-e20653f15368.herokuapp.com/admin")
+ADMIN_PANEL_URL = os.environ.get("ADMIN_PANEL_URL", "https://heroku-ne-808a61a8fe9e.herokuapp.com/admin")
 
 # List of admin Telegram IDs - Add your admin IDs here
 ADMIN_IDS = [8580367479, 8694029886]  # 👈 Apna Telegram ID yaha daalo
