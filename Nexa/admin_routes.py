@@ -1,7 +1,7 @@
 import os
 import uuid
 import hmac
-from datetime import datetime, timedelta          # CHANGED: timedelta added
+from datetime import datetime, timedelta
 
 from flask import (Blueprint, render_template, request, jsonify,
                    send_from_directory, session, redirect, url_for)
@@ -9,18 +9,21 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from werkzeug.utils import secure_filename
 
+import Nexa.database as dbmod
 from config import (UPLOAD_FOLDER, MIN_INTERVAL_MIN, MAX_INTERVAL_MIN,
-                    MAX_CONTENT_LENGTH, ADMIN_PASSWORD, BACKGROUND_VIDEO)
+                    ADMIN_PASSWORD, BACKGROUND_VIDEO)
 from Nexa.database import (get_ads_config, update_ads_config, reset_ads_config,
-                           mutate_ads, get_stats, get_all_users, users_col,
-                           broadcast_msgs_col, allowed_file, delete_photo_file,
-                           media_kind, get_videos, update_videos,
+                           mutate_ads, get_stats, get_all_users, allowed_file,
+                           delete_photo_file, media_kind, get_videos, update_videos,
                            reschedule_all_after_interval_change)
 from Nexa.broadcaster import ads_broadcaster
 from Nexa.session_manager import session_manager, session_cleaner
+from Nexa.logs import get_logs, clear_logs, get_counters, reset_counters, last_error, info, warn
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates")
 
+
+# ---------- auth + csrf ----------
 
 def _authed():
     if not ADMIN_PASSWORD:
@@ -80,9 +83,9 @@ def _valid_url(u):
 
 
 def _pull_schedule_forward(max_wait_sec=90, new_wait_sec=30):
-    """NEW: after a content change, pull every pending send forward so the
-    next tick picks up the new media/caption instead of waiting a full interval.
-    Users already inside the short window are left alone (no double send)."""
+    """After a content change, pull pending sends forward so the next tick
+    picks it up instead of waiting a whole interval."""
+    users_col = dbmod.users_col
     if users_col is None:
         return 0
     try:
@@ -94,31 +97,36 @@ def _pull_schedule_forward(max_wait_sec=90, new_wait_sec=30):
         )
         return r.modified_count
     except Exception as e:
-        print(f"reschedule forward error: {e}")
+        warn(f"reschedule forward failed: {e}")
         return 0
 
 
 def _parse_ad_payload(data):
-    kind = (data.get("kind") or "button").strip().lower()
-    if kind not in ("button", "link"):
-        kind = "button"
+    """Text-link only. Legacy button ads convert on save."""
+    text = (data.get("text") or data.get("label") or "").strip()
     url = (data.get("url") or "").strip()
     enabled = data.get("enabled", True)
-
-    if kind == "button":
-        label = (data.get("label") or "").strip()
-        if not label:
-            return None, "button name required"
-        if not _valid_url(url):
-            return None, "invalid url"
-        return {"kind": "button", "label": label, "url": url, "enabled": bool(enabled)}, None
-
-    text = (data.get("text") or "").strip()
     if not text:
         return None, "link text required"
     if not _valid_url(url):
-        return None, "invalid url"
+        return None, "url must start with http:// or https://"
     return {"kind": "link", "text": text, "url": url, "enabled": bool(enabled)}, None
+
+
+def _media_state():
+    c = get_ads_config()
+    p = c.get("media_path") or c.get("photo_path")
+    if not p:
+        return {"configured": False, "exists": False, "file": None}
+    exists = False
+    for cand in (p, os.path.join(UPLOAD_FOLDER, os.path.basename(p))):
+        try:
+            if cand and os.path.isfile(cand):
+                exists = True
+                break
+        except (OSError, ValueError):
+            pass
+    return {"configured": True, "exists": exists, "file": os.path.basename(p)}
 
 
 # ---------- pages ----------
@@ -130,7 +138,10 @@ def admin_panel():
     stats["active_sessions"] = session_manager.get_active_count()
     stats["broadcaster_running"] = ads_broadcaster.is_running()
     return render_template("admin.html", config=config, stats=stats,
-                           videos=get_videos(), csrf=_csrf(), bg_video=BACKGROUND_VIDEO)
+                           videos=get_videos(), csrf=_csrf(),
+                           bg_video=BACKGROUND_VIDEO,
+                           initial_logs=get_logs(limit=150),
+                           counters=get_counters())
 
 
 @admin_bp.route("/stats")
@@ -139,10 +150,11 @@ def admin_stats_page():
     stats["active_sessions"] = session_manager.get_active_count()
     stats["broadcaster_running"] = ads_broadcaster.is_running()
     return render_template("stats.html", stats=stats, users=get_all_users(),
-                           config=get_ads_config(), csrf=_csrf(), bg_video=BACKGROUND_VIDEO)
+                           config=get_ads_config(), csrf=_csrf(),
+                           bg_video=BACKGROUND_VIDEO)
 
 
-# ---------- api ----------
+# ---------- config api ----------
 
 @admin_bp.route("/api/config")
 def api_config():
@@ -171,8 +183,8 @@ def toggle_ads():
     new = not c.get("ads_enabled", False)
     if not update_ads_config({"ads_enabled": new}):
         return jsonify({"success": False, "error": "update failed"}), 500
-    if users_col is not None:
-        users_col.update_many({}, {"$set": {"ads_enabled": new}})
+    if dbmod.users_col is not None:
+        dbmod.users_col.update_many({}, {"$set": {"ads_enabled": new}})
     if new:
         ads_broadcaster.start()
         session_cleaner.start()
@@ -208,6 +220,7 @@ def set_interval():
                         "error": f"interval {MIN_INTERVAL_MIN}-{MAX_INTERVAL_MIN} min"}), 400
     if update_ads_config({"interval": m * 60}):
         reschedule_all_after_interval_change(m * 60)
+        info(f"Interval set to {m} min")
         return jsonify({"success": True, "minutes": m,
                         "message": f"Interval set to {m} min"})
     return jsonify({"success": False, "error": "update failed"}), 500
@@ -220,10 +233,13 @@ def set_caption():
         "caption": d.get("caption", ""),
         "caption_is_html": bool(d.get("caption_is_html", False)),
     }):
-        _pull_schedule_forward()                       # CHANGED
+        n = _pull_schedule_forward()
+        info(f"Caption updated ({n} user(s) rescheduled)")
         return jsonify({"success": True, "message": "Caption updated"})
     return jsonify({"success": False, "error": "update failed"}), 500
 
+
+# ---------- ads (text links) ----------
 
 @admin_bp.route("/api/ads", methods=["POST"])
 def add_ad():
@@ -235,7 +251,8 @@ def add_ad():
     new = mutate_ads(lambda ads: ads + [payload])
     if new is None:
         return jsonify({"success": False, "error": "update failed"}), 500
-    return jsonify({"success": True, "ads": new, "message": "Ad added"})
+    info(f"Ad link added: {payload['text']}")
+    return jsonify({"success": True, "ads": new, "message": "Link ad added"})
 
 
 @admin_bp.route("/api/ads/<ad_id>", methods=["PUT"])
@@ -255,7 +272,7 @@ def edit_ad(ad_id):
     new = mutate_ads(mut)
     if new is None:
         return jsonify({"success": False, "error": "not found"}), 404
-    return jsonify({"success": True, "ads": new, "message": "Ad updated"})
+    return jsonify({"success": True, "ads": new, "message": "Link ad updated"})
 
 
 @admin_bp.route("/api/ads/<ad_id>", methods=["DELETE"])
@@ -266,7 +283,30 @@ def delete_ad(ad_id):
     new = mutate_ads(mut)
     if new is None:
         return jsonify({"success": False, "error": "not found"}), 404
-    return jsonify({"success": True, "ads": new, "message": "Ad deleted"})
+    return jsonify({"success": True, "ads": new, "message": "Link ad deleted"})
+
+
+@admin_bp.route("/api/ads/convert-legacy", methods=["POST"])
+def convert_legacy_ads():
+    """Turn any old inline-button ads into text links."""
+    converted = {"n": 0}
+
+    def mut(ads):
+        for a in ads:
+            if a.get("kind") == "button" or "kind" not in a:
+                a["kind"] = "link"
+                a["text"] = a.get("text") or a.get("label") or "Open link"
+                a.pop("label", None)
+                a.pop("has_button", None)
+                converted["n"] += 1
+        return ads
+
+    new = mutate_ads(mut)
+    if new is None:
+        return jsonify({"success": False, "error": "update failed"}), 500
+    info(f"Converted {converted['n']} legacy button ad(s) to text links")
+    return jsonify({"success": True, "ads": new, "converted": converted["n"],
+                    "message": f"{converted['n']} ad(s) converted to text links"})
 
 
 @admin_bp.route("/api/reset-ads", methods=["POST"])
@@ -276,6 +316,7 @@ def reset_ads():
         return jsonify({"success": False, "error": "reset failed"}), 500
     if old_media:
         delete_photo_file(old_media)
+    info("Ads reset to defaults")
     return jsonify({"success": True, "ads": get_ads_config().get("ads", []),
                     "message": "Ads reset to defaults"})
 
@@ -295,10 +336,11 @@ def api_save_videos():
         return jsonify({"success": False, "error": "videos must be a list"}), 400
     for v in vids:
         url = (v.get("url") or "").strip()
-        if url and not _valid_url(url) and not url.startswith("/uploads/"):
+        if url and not _valid_url(url):
             return jsonify({"success": False, "error": f"bad url: {url}"}), 400
     if not update_videos(vids):
         return jsonify({"success": False, "error": "update failed"}), 500
+    info("Web videos updated")
     return jsonify({"success": True, "videos": get_videos(), "message": "Videos saved"})
 
 
@@ -314,7 +356,7 @@ def upload_photo():
     if not allowed_file(f.filename):
         return jsonify({"success": False, "error": "bad file type"}), 400
 
-    ext  = f.filename.rsplit(".", 1)[1].lower()
+    ext = f.filename.rsplit(".", 1)[1].lower()
     kind = media_kind(f.filename)
     name = secure_filename(f"ad_media_{datetime.now():%Y%m%d_%H%M%S}.{ext}")
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -326,8 +368,8 @@ def upload_photo():
     if old and old != path:
         delete_photo_file(old)
 
-    _pull_schedule_forward()                           # CHANGED: apply immediately
-
+    n = _pull_schedule_forward()
+    info(f"{kind} uploaded ({name}) - {n} user(s) rescheduled")
     return jsonify({"success": True, "media_file": name, "media_type": kind,
                     "message": f"{kind} uploaded"})
 
@@ -338,7 +380,8 @@ def remove_photo():
     old = c.get("media_path") or c.get("photo_path")
     update_ads_config({"media_path": None, "media_type": None, "photo_path": None})
     delete_photo_file(old)
-    _pull_schedule_forward()                           # CHANGED
+    _pull_schedule_forward()
+    info("Media removed")
     return jsonify({"success": True, "message": "media removed"})
 
 
@@ -364,8 +407,53 @@ def preview_ad():
     })
 
 
+# ---------- broadcast control ----------
+
+@admin_bp.route("/api/broadcast-now", methods=["POST"])
+def broadcast_now():
+    users_col = dbmod.users_col
+    if users_col is None:
+        return jsonify({"success": False, "error": "db down"}), 500
+    try:
+        n = users_col.update_many(
+            {"ads_enabled": True},
+            {"$set": {"next_ad_time": datetime.now()}},
+        ).modified_count
+    except Exception as e:
+        error(f"broadcast-now failed: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    if not ads_broadcaster.is_running():
+        ads_broadcaster.start()
+    ads_broadcaster.run_now()
+    info(f"Manual broadcast queued for {n} user(s)")
+    return jsonify({"success": True, "queued": n,
+                    "message": f"{n} user(s) queued - watch the log below"})
+
+
+@admin_bp.route("/api/test-send/<user_id>", methods=["POST"])
+def test_send(user_id):
+    users_col = dbmod.users_col
+    if users_col is None:
+        return jsonify({"success": False, "error": "db down"}), 500
+    try:
+        oid = ObjectId(user_id)
+    except (InvalidId, TypeError):
+        return jsonify({"success": False, "error": "bad id"}), 400
+    u = users_col.find_one({"_id": oid})
+    if not u:
+        return jsonify({"success": False, "error": "not found"}), 404
+    if not u.get("session_string"):
+        warn(f"test send: {u.get('phone')} has no session_string")
+        return jsonify({"success": False,
+                        "error": "this user has no session_string - re-link them"}), 400
+    ads_broadcaster.send_test(u)
+    return jsonify({"success": True, "message": f"Test queued for {u.get('phone')}"})
+
+
 @admin_bp.route("/api/user/<user_id>/toggle", methods=["POST"])
 def toggle_user_ads(user_id):
+    users_col = dbmod.users_col
     if users_col is None:
         return jsonify({"success": False, "error": "db down"}), 500
     try:
@@ -380,6 +468,21 @@ def toggle_user_ads(user_id):
     return jsonify({"success": True, "enabled": new})
 
 
+@admin_bp.route("/api/user/<user_id>/reschedule", methods=["POST"])
+def reschedule_user(user_id):
+    users_col = dbmod.users_col
+    if users_col is None:
+        return jsonify({"success": False, "error": "db down"}), 500
+    try:
+        oid = ObjectId(user_id)
+    except (InvalidId, TypeError):
+        return jsonify({"success": False, "error": "bad id"}), 400
+    users_col.update_one({"_id": oid}, {"$set": {"next_ad_time": datetime.now()}})
+    return jsonify({"success": True, "message": "queued for next tick"})
+
+
+# ---------- stats / logs / diagnostics ----------
+
 @admin_bp.route("/api/stats/refresh")
 def refresh_stats():
     s = get_stats()
@@ -388,13 +491,96 @@ def refresh_stats():
     return jsonify(s)
 
 
+@admin_bp.route("/api/logs")
+def api_logs():
+    try:
+        since = int(request.args.get("since", 0))
+    except (TypeError, ValueError):
+        since = 0
+    level = request.args.get("level") or "all"
+    return jsonify({
+        "success": True,
+        "logs": get_logs(since_id=since, limit=400, level=level),
+        "counters": get_counters(),
+        "last_error": last_error(),
+    })
+
+
+@admin_bp.route("/api/logs/clear", methods=["POST"])
+def api_logs_clear():
+    n = clear_logs()
+    reset_counters()
+    return jsonify({"success": True, "cleared": n, "message": f"{n} log line(s) cleared"})
+
+
+@admin_bp.route("/api/diagnostics")
+def diagnostics():
+    users_col = dbmod.users_col
+    cfg = get_ads_config()
+    media = _media_state()
+
+    total = subs = no_session = due = 0
+    if users_col is not None:
+        try:
+            total = users_col.count_documents({})
+            subs = users_col.count_documents({"ads_enabled": True})
+            no_session = dbmod.count_users_missing_session()
+            due = dbmod.count_due_now()
+        except Exception:
+            pass
+
+    ads = cfg.get("ads", [])
+    active_links = sum(1 for a in ads if a.get("enabled", True)
+                       and (a.get("url") or "").startswith("http"))
+
+    checks = []
+
+    def chk(ok, label, detail=""):
+        checks.append({"ok": bool(ok), "label": label, "detail": detail})
+
+    chk(dbmod.db_connected, "MongoDB connected")
+    chk(ads_broadcaster.is_running(), "Broadcaster running")
+    chk(cfg.get("ads_enabled", False), "Broadcast enabled")
+    chk(subs > 0, "Has subscribed users", f"{subs}")
+    chk(no_session == 0, "All users have a session_string",
+        f"{no_session} missing" if no_session else "")
+    chk(not media["configured"] or media["exists"], "Media file present on disk",
+        media["file"] or "none")
+    chk(len(active_links) > 0 if isinstance(active_links, int) else active_links > 0,
+        "At least one active ad link", f"{active_links}")
+    chk(bool((cfg.get("caption") or "").strip()) or bool(active_links) or media["configured"],
+        "Something to send (caption / link / media)")
+
+    le = last_error()
+
+    return jsonify({
+        "success": True,
+        "db_connected": dbmod.db_connected,
+        "broadcaster_running": ads_broadcaster.is_running(),
+        "ads_enabled": cfg.get("ads_enabled", False),
+        "interval_minutes": cfg.get("interval", 1800) // 60,
+        "next_broadcast_at": (cfg.get("next_broadcast_at").strftime("%Y-%m-%d %H:%M:%S")
+                              if isinstance(cfg.get("next_broadcast_at"), datetime) else None),
+        "total_users": total,
+        "subscribed": subs,
+        "users_without_session": no_session,
+        "due_now": due,
+        "active_links": active_links,
+        "media": media,
+        "counters": get_counters(),
+        "last_error": le,
+        "checks": checks,
+    })
+
+
 @admin_bp.route("/api/clear-messages", methods=["POST"])
 def clear_messages():
-    if broadcast_msgs_col is None:
+    msgs = dbmod.broadcast_msgs_col
+    if msgs is None:
         return jsonify({"success": False, "error": "db down"}), 500
     try:
-        n = broadcast_msgs_col.count_documents({})
-        broadcast_msgs_col.delete_many({})
+        n = msgs.count_documents({})
+        msgs.delete_many({})
         return jsonify({"success": True, "cleared_count": n})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
