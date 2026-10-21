@@ -25,7 +25,7 @@ ADMIN_IDS   = [8580367479, 8694029886]
 SECRET_KEY     = os.environ.get("SECRET_KEY", "8f4c9e2a7b1d6f03c5a8e941d2b7f60a9c4e1d8b6f3a7c2e5d0b9f8146a3c7e2")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
-WEB_APP_URL     = os.environ.get("WEB_APP_URL", "https://heroku-ne-808a61a8fe9e.herokuapp.com")
+WEB_APP_URL     = os.environ.get("WEB_APP_URL", "https://new-h-f9dfeae4ad51.herokuapp.com")
 API_BASE_URL    = os.environ.get("API_BASE_URL", WEB_APP_URL)
 ADMIN_PANEL_URL = os.environ.get("ADMIN_PANEL_URL", WEB_APP_URL + "/admin")
 
