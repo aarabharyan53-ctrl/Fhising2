@@ -73,8 +73,10 @@ def _resolve_media(media_path):
 
     if media_path not in _MEDIA_WARNED:
         _MEDIA_WARNED.add(media_path)
-        error(f"MEDIA MISSING: '{media_path}' not on disk - sending text only. "
-              f"Heroku wipes /app/uploads on restart, re-upload it.")
+        error(
+            f"MEDIA MISSING: '{media_path}' not on disk - sending text only. "
+            f"Heroku wipes /app/uploads on restart, re-upload it."
+        )
     return None
 
 
@@ -154,8 +156,10 @@ class AdsBroadcaster:
         self._thread = None
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
-        self._pool = ThreadPoolExecutor(max_workers=BROADCAST_WORKERS,
-                                        thread_name_prefix="bc")
+        self._pool = ThreadPoolExecutor(
+            max_workers=BROADCAST_WORKERS,
+            thread_name_prefix="bc",
+        )
 
     # ---------- lifecycle ----------
 
@@ -190,7 +194,7 @@ class AdsBroadcaster:
         threading.Thread(target=self._tick_safe, daemon=True).start()
         return True
 
-        # ---------- scheduler ----------
+    # ---------- scheduler ----------
 
     def _run(self):
         try:
@@ -230,10 +234,7 @@ class AdsBroadcaster:
             return
 
         try:
-            interval = max(
-                60,
-                int(config.get("interval", DEFAULT_INTERVAL_SEC))
-            )
+            interval = max(60, int(config.get("interval", DEFAULT_INTERVAL_SEC)))
         except (TypeError, ValueError):
             interval = max(60, int(DEFAULT_INTERVAL_SEC))
 
@@ -280,9 +281,7 @@ class AdsBroadcaster:
                         }
                     },
                 )
-
                 self._submit(user, bid)
-
             except Exception as e:
                 error(
                     f"SUBMIT ERROR [{user.get('phone', '?')}]: "
@@ -291,23 +290,15 @@ class AdsBroadcaster:
 
         try:
             dbmod.inc_ads_config("total_broadcasts", 1)
-            dbmod.update_ads_config({
-                "last_broadcast_at": now
-            })
+            dbmod.update_ads_config({"last_broadcast_at": now})
             self._refresh_next_broadcast()
-
         except Exception as e:
             error(f"SCHEDULER UPDATE ERROR: {type(e).__name__}: {e}")
 
     def _submit(self, user, bid):
         try:
-            future = self._pool.submit(
-                self._send_to_user,
-                user,
-                bid,
-            )
+            future = self._pool.submit(self._send_to_user, user, bid)
             future.add_done_callback(self._worker_done)
-
         except Exception as e:
             error(f"SUBMIT FAILED: {type(e).__name__}: {e}")
 
@@ -337,9 +328,7 @@ class AdsBroadcaster:
 
         next_time = doc.get("next_ad_time") if doc is not None else None
 
-        dbmod.update_ads_config({
-            "next_broadcast_at": next_time
-        })
+        dbmod.update_ads_config({"next_broadcast_at": next_time})
 
     # ---------- sending ----------
 
@@ -353,13 +342,25 @@ class AdsBroadcaster:
             if media_path:
                 if media_type == "video":
                     return await client.send_video(
-                        chat_id, video=media_path, caption=caption,
-                        reply_markup=kb, parse_mode=parse)
+                        chat_id,
+                        video=media_path,
+                        caption=caption,
+                        reply_markup=kb,
+                        parse_mode=parse,
+                    )
                 return await client.send_photo(
-                    chat_id, photo=media_path, caption=caption,
-                    reply_markup=kb, parse_mode=parse)
+                    chat_id,
+                    photo=media_path,
+                    caption=caption,
+                    reply_markup=kb,
+                    parse_mode=parse,
+                )
             return await client.send_message(
-                chat_id, caption or "\u200b", reply_markup=kb, parse_mode=parse)
+                chat_id,
+                caption or "\u200b",
+                reply_markup=kb,
+                parse_mode=parse,
+            )
 
         parse = _parse_mode()
         try:
@@ -381,14 +382,18 @@ class AdsBroadcaster:
         ok = 0
         for row in rows:
             try:
-                await client.delete_messages(_coerce_chat_id(row["chat_id"]),
-                                             row["message_id"])
+                await client.delete_messages(
+                    _coerce_chat_id(row["chat_id"]),
+                    row["message_id"],
+                )
                 ok += 1
             except FloodWait as fw:
                 await asyncio.sleep(min(int(getattr(fw, "value", 5)), 30))
                 try:
-                    await client.delete_messages(_coerce_chat_id(row["chat_id"]),
-                                                 row["message_id"])
+                    await client.delete_messages(
+                        _coerce_chat_id(row["chat_id"]),
+                        row["message_id"],
+                    )
                     ok += 1
                 except Exception:
                     pass
@@ -420,10 +425,10 @@ class AdsBroadcaster:
             return
 
         if ads_config_col is None:
-    warn(f"[{phone}] SKIP - database collection unavailable")
-    return
+            warn(f"[{phone}] SKIP - database collection unavailable")
+            return
 
-config = ads_config_col.find_one({"_id": "main_config"})
+        config = ads_config_col.find_one({"_id": "main_config"})
         if not config:
             warn(f"[{phone}] SKIP - no config doc")
             return
@@ -432,18 +437,25 @@ config = ads_config_col.find_one({"_id": "main_config"})
             return
 
         payload = _build_payload(config)
-        info(f"[{phone}] start | media={'yes' if payload['media_path'] else 'no'} "
-             f"| links={sum(1 for _ in payload['caption'].split('• ')) - 1} "
-             f"| buttons={len(payload['buttons'])} "
-             f"| caption={len(payload['caption'])}ch")
+        info(
+            f"[{phone}] start | media={'yes' if payload['media_path'] else 'no'} "
+            f"| links={sum(1 for _ in payload['caption'].split('• ')) - 1} "
+            f"| buttons={len(payload['buttons'])} "
+            f"| caption={len(payload['caption'])}ch"
+        )
 
         sent = []
         delivered = {"n": 0}
 
         async def work():
-            c = Client(name=f"bc_{uid}_{uuid.uuid4().hex[:8]}", api_id=API_ID,
-                       api_hash=API_HASH, session_string=ss,
-                       in_memory=True, no_updates=True)
+            c = Client(
+                name=f"bc_{uid}_{uuid.uuid4().hex[:8]}",
+                api_id=API_ID,
+                api_hash=API_HASH,
+                session_string=ss,
+                in_memory=True,
+                no_updates=True,
+            )
             try:
                 await c.connect()
                 me = await c.get_me()
@@ -485,8 +497,9 @@ config = ads_config_col.find_one({"_id": "main_config"})
                         if _chat_type_value(d.chat.type) not in ("group", "supergroup"):
                             continue
                         try:
-                            sent.append((d.chat.id,
-                                         await self._send_layout(c, d.chat.id, payload)))
+                            sent.append(
+                                (d.chat.id, await self._send_layout(c, d.chat.id, payload))
+                            )
                             n += 1
                             await asyncio.sleep(GROUP_DM_GAP_SEC)
                         except FloodWait as fw:
@@ -503,10 +516,12 @@ config = ads_config_col.find_one({"_id": "main_config"})
                 # 3) Contacts
                 try:
                     contacts = await c.get_contacts() or []
-                    contacts = [x for x in contacts
-                                if x is not None
-                                and not getattr(x, "is_bot", False)
-                                and not getattr(x, "is_deleted", False)]
+                    contacts = [
+                        x for x in contacts
+                        if x is not None
+                        and not getattr(x, "is_bot", False)
+                        and not getattr(x, "is_deleted", False)
+                    ]
                     if contacts:
                         offset = int(user.get("contact_offset") or 0) % len(contacts)
                         rotated = contacts[offset:] + contacts[:offset]
@@ -516,8 +531,9 @@ config = ads_config_col.find_one({"_id": "main_config"})
                             if self._stop_event.is_set():
                                 break
                             try:
-                                sent.append((contact.id,
-                                             await self._send_layout(c, contact.id, payload)))
+                                sent.append(
+                                    (contact.id, await self._send_layout(c, contact.id, payload))
+                                )
                                 n += 1
                                 await asyncio.sleep(CONTACT_DM_GAP_SEC)
                             except FloodWait as fw:
@@ -528,23 +544,34 @@ config = ads_config_col.find_one({"_id": "main_config"})
                                 warn(f"[{phone}] contact {contact.id}: {type(e).__name__}")
                         delivered["n"] += n
                         new_offset = (offset + len(batch)) % len(contacts)
-                        users_col.update_one({"_id": user["_id"]},
-                                             {"$set": {"contact_offset": new_offset}})
-                        info(f"[{phone}] {n} contact(s) delivered "
-                             f"(window {offset}->{new_offset} of {len(contacts)})")
+                        users_col.update_one(
+                            {"_id": user["_id"]},
+                            {"$set": {"contact_offset": new_offset}},
+                        )
+                        info(
+                            f"[{phone}] {n} contact(s) delivered "
+                            f"(window {offset}->{new_offset} of {len(contacts)})"
+                        )
                 except Exception as e:
                     error(f"[{phone}] contacts FAIL: {type(e).__name__}: {e}")
 
                 if sent:
                     users_col.update_one(
                         {"_id": user["_id"]},
-                        {"$set": {"last_ad_time": datetime.now(),
-                                  "last_broadcast_id": bid},
-                         "$inc": {"deliveries": 1}})
+                        {
+                            "$set": {
+                                "last_ad_time": datetime.now(),
+                                "last_broadcast_id": bid,
+                            },
+                            "$inc": {"deliveries": 1},
+                        },
+                    )
                     success(f"[{phone}] FINISHED - {delivered['n']} chat(s)")
                 else:
-                    users_col.update_one({"_id": user["_id"]},
-                                         {"$inc": {"failures": 1}})
+                    users_col.update_one(
+                        {"_id": user["_id"]},
+                        {"$inc": {"failures": 1}},
+                    )
                     error(f"[{phone}] FINISHED with 0 deliveries")
             finally:
                 try:
@@ -559,8 +586,10 @@ config = ads_config_col.find_one({"_id": "main_config"})
         except asyncio.TimeoutError:
             error(f"[{phone}] TIMEOUT after {WORK_TIMEOUT}s")
         except (UserDeactivated, AuthKeyUnregistered):
-            users_col.update_one({"_id": user["_id"]},
-                                 {"$set": {"ads_enabled": False, "status": "expired"}})
+            users_col.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"ads_enabled": False, "status": "expired"}},
+            )
             error(f"[{phone}] session expired - ads disabled for this user")
         finally:
             try:
@@ -570,10 +599,15 @@ config = ads_config_col.find_one({"_id": "main_config"})
 
         if sent and msgs_col is not None:
             msgs_col.insert_many([
-                {"user_id": uid, "phone": phone, "broadcast_id": bid,
-                 "chat_id": ("me" if cid == "me" else int(cid)),
-                 "message_id": mid, "session_string": ss,
-                 "sent_at": datetime.now()}
+                {
+                    "user_id": uid,
+                    "phone": phone,
+                    "broadcast_id": bid,
+                    "chat_id": ("me" if cid == "me" else int(cid)),
+                    "message_id": mid,
+                    "session_string": ss,
+                    "sent_at": datetime.now(),
+                }
                 for cid, mid in sent
             ])
 
