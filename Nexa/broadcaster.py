@@ -1,6 +1,7 @@
-import os
 import asyncio
+import os
 import threading
+import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -17,42 +18,17 @@ try:
 except ImportError:                               # Pyrogram v1.x
     from pyrogram.types import ParseMode
 
+import Nexa.database as dbmod
+from Nexa.logs import info, success, warn, error
+
 from config import (
     API_ID, API_HASH, BROADCAST_WORKERS, TICK_SECONDS,
     CONTACT_LIMIT_PER_ROUND, CONTACT_DM_GAP_SEC, GROUP_DM_GAP_SEC,
     DEFAULT_INTERVAL_SEC, UPLOAD_FOLDER,
 )
-from Nexa.database import (
-    users_col, ads_config_col, broadcast_msgs_col,
-    update_ads_config, inc_ads_config, escape_text, backfill_next_ad_time,
-)
 
-# Chats that are permanently un-writable -> skip quietly
 SKIP_ERRORS = (PeerIdInvalid, ChannelInvalid, ChannelPrivate, ChatWriteForbidden)
-
-
-def log(msg):
-    print(msg, flush=True)
-
-
-def _chat_type_value(t):
-    return getattr(t, "value", t)
-
-
-def _coerce_chat_id(v):
-    """Legacy rows stored chat ids as strings. Turn them back into ints so
-    Pyrogram doesn't try to resolve them as usernames."""
-    if isinstance(v, int):
-        return v
-    if isinstance(v, str):
-        if v in ("me", "self"):
-            return "me"
-        try:
-            return int(v)
-        except ValueError:
-            return v
-    return v
-
+WORK_TIMEOUT = 600
 
 # ---------------------------------------------------------------- parse mode
 
@@ -67,7 +43,7 @@ def _disable_html(reason):
     _PARSE_STATE["html_ok"] = False
     if not _PARSE_STATE["warned"]:
         _PARSE_STATE["warned"] = True
-        log(f"HTML parse mode unavailable ({reason}); using plain text")
+        warn(f"HTML parse mode unavailable ({reason}) - using plain text")
 
 
 # ---------------------------------------------------------------- media
@@ -76,10 +52,10 @@ _MEDIA_WARNED = set()
 
 
 def _resolve_media(media_path):
-    """Find the media on disk no matter how the path was stored.
-    Returns an absolute path, or None (with a one-time warning)."""
     if not media_path:
         return None
+    if not isinstance(media_path, str):
+        media_path = str(media_path)
 
     base = os.path.basename(media_path)
     candidates = [
@@ -97,46 +73,77 @@ def _resolve_media(media_path):
 
     if media_path not in _MEDIA_WARNED:
         _MEDIA_WARNED.add(media_path)
-        log(f"MEDIA MISSING: '{media_path}' not found "
-            f"(checked {len(candidates)} locations). Sending text only. "
-            f"Heroku's disk is ephemeral - re-upload after a restart.")
+        error(f"MEDIA MISSING: '{media_path}' not on disk - sending text only. "
+              f"Heroku wipes /app/uploads on restart, re-upload it.")
     return None
+
+
+def _chat_type_value(t):
+    return getattr(t, "value", t)
+
+
+def _coerce_chat_id(v):
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str):
+        if v in ("me", "self"):
+            return "me"
+        try:
+            return int(v)
+        except ValueError:
+            return v
+    return v
 
 
 # ---------------------------------------------------------------- payload
 
 def _build_payload(config):
+    """Never raises. Ads are text links; legacy button ads still render
+    an inline button so nothing breaks mid-migration."""
     base = config.get("caption") or ""
+    if not isinstance(base, str):
+        base = str(base)
     if not config.get("caption_is_html"):
-        base = escape_text(base)
+        base = base.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-    buttons = []
-    link_lines = []
+    buttons, link_lines = [], []
 
-    for ad in config.get("ads", []):
-        if not ad.get("enabled", True):
+    ads = config.get("ads") or []
+    if not isinstance(ads, list):
+        ads = []
+    for ad in ads:
+        if not isinstance(ad, dict) or not ad.get("enabled", True):
             continue
-        url = (ad.get("url") or "").strip()
+        url = ad.get("url") or ""
+        if not isinstance(url, str):
+            url = str(url)
+        url = url.strip()
         if not url.startswith(("http://", "https://")):
             continue
-        if ad.get("kind") == "button":
+
+        if ad.get("kind") == "button":                       # legacy
             label = (ad.get("label") or "").strip()
             if label:
                 buttons.append([InlineKeyboardButton(label, url=url)])
-        elif ad.get("kind") == "link":
-            text = (ad.get("text") or "").strip()
+        else:                                                # text link
+            text = (ad.get("text") or ad.get("label") or "").strip()
             if text:
-                link_lines.append(f'• <a href="{url}">{escape_text(text)}</a>')
+                safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                link_lines.append(f'• <a href="{url}">{safe}</a>')
 
     caption = base
     if link_lines:
         caption = (caption + "\n\n" + "\n".join(link_lines)).strip()
 
+    media_type = config.get("media_type") or "photo"
+    if media_type not in ("photo", "video"):
+        media_type = "photo"
+
     return {
         "caption": caption,
         "buttons": buttons,
         "media_path": _resolve_media(config.get("media_path") or config.get("photo_path")),
-        "media_type": config.get("media_type") or "photo",
+        "media_type": media_type,
         "delete_prev": bool(config.get("delete_after_round")),
     }
 
@@ -150,6 +157,8 @@ class AdsBroadcaster:
         self._pool = ThreadPoolExecutor(max_workers=BROADCAST_WORKERS,
                                         thread_name_prefix="bc")
 
+    # ---------- lifecycle ----------
+
     def is_running(self):
         return self._running
 
@@ -161,7 +170,7 @@ class AdsBroadcaster:
             self._running = True
             self._thread = threading.Thread(target=self._run, daemon=True)
             self._thread.start()
-        log("Broadcaster started")
+        success("Broadcaster started")
         return True
 
     def stop(self):
@@ -173,28 +182,43 @@ class AdsBroadcaster:
             t = self._thread
         if t:
             t.join(timeout=5)
-        update_ads_config({"next_broadcast_at": None})
-        log("Broadcaster stopped")
+        dbmod.update_ads_config({"next_broadcast_at": None})
+        info("Broadcaster stopped")
+        return True
+
+    def run_now(self):
+        threading.Thread(target=self._tick_safe, daemon=True).start()
         return True
 
     # ---------- scheduler ----------
 
     def _run(self):
-        n = backfill_next_ad_time()
+        n = dbmod.backfill_next_ad_time()
         if n:
-            log(f"Scheduled {n} previously unscheduled users")
+            info(f"Scheduled {n} previously unscheduled users")
         while not self._stop_event.is_set():
-            try:
-                self._tick()
-            except Exception as e:
-                log(f"Scheduler error: {type(e).__name__}: {e}")
+            self._tick_safe()
             self._stop_event.wait(TICK_SECONDS)
 
+    def _tick_safe(self):
+        try:
+            self._tick()
+        except Exception as e:
+            error(f"TICK CRASH: {type(e).__name__}: {e}")
+            print(traceback.format_exc(), flush=True)
+
     def _tick(self):
+        users_col = dbmod.users_col
+        ads_config_col = dbmod.ads_config_col
         if users_col is None or ads_config_col is None:
+            warn("tick skipped: db handles not ready")
             return
+
         config = ads_config_col.find_one({"_id": "main_config"})
-        if not config or not config.get("ads_enabled", False):
+        if not config:
+            warn("tick skipped: no config document")
+            return
+        if not config.get("ads_enabled", False):
             return
 
         interval = max(60, int(config.get("interval", DEFAULT_INTERVAL_SEC)))
@@ -210,28 +234,50 @@ class AdsBroadcaster:
             return
 
         bid = f"round_{now:%Y%m%d_%H%M%S}"
-        log(f"round {bid}: {len(due)} due")
+        no_session = [u.get("phone", "?") for u in due if not u.get("session_string")]
+        info(f"ROUND {bid}: {len(due)} user(s) due")
+        if no_session:
+            warn(f"{len(no_session)} user(s) have no session_string: "
+                 f"{', '.join(no_session[:6])}"
+                 f"{' …' if len(no_session) > 6 else ''}")
 
         for user in due:
-            # reserve the slot so a slow send can't double-fire
             users_col.update_one(
                 {"_id": user["_id"]},
                 {"$set": {"next_ad_time": now + timedelta(seconds=interval)}},
             )
-            self._pool.submit(self._send_to_user, user, bid)
+            self._submit(user, bid)
 
-        inc_ads_config("total_broadcasts", 1)
-        update_ads_config({"last_broadcast_at": now})
+        dbmod.inc_ads_config("total_broadcasts", 1)
+        dbmod.update_ads_config({"last_broadcast_at": now})
         self._refresh_next_broadcast()
 
+    def _submit(self, user, bid):
+        try:
+            fut = self._pool.submit(self._send_to_user, user, bid)
+        except Exception as e:
+            error(f"submit failed: {type(e).__name__}: {e}")
+            return
+        fut.add_done_callback(self._worker_done)
+
+    def _worker_done(self, fut):
+        try:
+            exc = fut.exception()
+        except Exception as e:
+            error(f"future error: {type(e).__name__}: {e}")
+            return
+        if exc is not None:
+            error(f"WORKER CRASH: {type(exc).__name__}: {exc}")
+
     def _refresh_next_broadcast(self):
+        users_col = dbmod.users_col
         if users_col is None:
             return
         doc = users_col.find_one(
             {"ads_enabled": True, "next_ad_time": {"$ne": None}},
             sort=[("next_ad_time", 1)],
         )
-        update_ads_config({"next_broadcast_at": doc["next_ad_time"] if doc else None})
+        dbmod.update_ads_config({"next_broadcast_at": doc["next_ad_time"] if doc else None})
 
     # ---------- sending ----------
 
@@ -266,9 +312,10 @@ class AdsBroadcaster:
         return msg.id
 
     async def _delete_user_messages(self, client, uid, phone):
-        if broadcast_msgs_col is None:
+        msgs = dbmod.broadcast_msgs_col
+        if msgs is None:
             return
-        rows = list(broadcast_msgs_col.find({"user_id": uid}))
+        rows = list(msgs.find({"user_id": uid}))
         ok = 0
         for row in rows:
             try:
@@ -285,25 +332,47 @@ class AdsBroadcaster:
                     pass
             except Exception:
                 pass
-        broadcast_msgs_col.delete_many({"user_id": uid})
+        msgs.delete_many({"user_id": uid})
         if rows:
-            log(f"cleared {ok}/{len(rows)} old msgs for {phone}")
+            info(f"[{phone}] cleared {ok}/{len(rows)} previous message(s)")
 
     def _send_to_user(self, user, bid):
+        phone = user.get("phone", "?")
+        try:
+            self._send_to_user_inner(user, bid)
+        except Exception as e:
+            error(f"[{phone}] UNCAUGHT {type(e).__name__}: {e}")
+            print(traceback.format_exc(), flush=True)
+
+    def _send_to_user_inner(self, user, bid):
+        users_col = dbmod.users_col
+        ads_config_col = dbmod.ads_config_col
+        msgs_col = dbmod.broadcast_msgs_col
+
         uid = user.get("user_id")
         phone = user.get("phone", "?")
         ss = user.get("session_string")
+
         if not ss:
+            warn(f"[{phone}] SKIP - no session_string in user doc")
             return
 
-        # Fresh config read per user -> media/caption changes apply immediately
         config = ads_config_col.find_one({"_id": "main_config"}) if ads_config_col else None
-        if not config or not config.get("ads_enabled", False):
+        if not config:
+            warn(f"[{phone}] SKIP - no config doc")
             return
+        if not config.get("ads_enabled", False):
+            warn(f"[{phone}] SKIP - broadcast disabled")
+            return
+
         payload = _build_payload(config)
+        info(f"[{phone}] start | media={'yes' if payload['media_path'] else 'no'} "
+             f"| links={sum(1 for _ in payload['caption'].split('• ')) - 1} "
+             f"| buttons={len(payload['buttons'])} "
+             f"| caption={len(payload['caption'])}ch")
 
         sent = []
-        delivered = {"count": 0}
+        delivered = {"n": 0}
 
         async def work():
             c = Client(name=f"bc_{uid}_{uuid.uuid4().hex[:8]}", api_id=API_ID,
@@ -314,32 +383,32 @@ class AdsBroadcaster:
                 me = await c.get_me()
                 if not me:
                     raise AuthKeyUnregistered("bad session")
-                c.me = me  # required: fixes is_premium access in Pyrogram
+                c.me = me
 
                 if payload["delete_prev"]:
                     await self._delete_user_messages(c, uid, phone)
 
-                # 1) Saved Messages  ------------------------------------------------
+                # 1) Saved Messages
                 try:
                     sent.append(("me", await self._send_layout(c, "me", payload)))
-                    delivered["count"] += 1
-                    log(f"DM ok: {phone}")
+                    delivered["n"] += 1
+                    success(f"[{phone}] DM sent")
                 except FloodWait as fw:
                     wait = min(int(getattr(fw, "value", 5)), 30)
-                    log(f"FloodWait {wait}s on DM {phone}, retrying")
+                    warn(f"[{phone}] FloodWait {wait}s on DM, retrying")
                     await asyncio.sleep(wait)
                     try:
                         sent.append(("me", await self._send_layout(c, "me", payload)))
-                        delivered["count"] += 1
-                        log(f"DM ok after wait: {phone}")
+                        delivered["n"] += 1
+                        success(f"[{phone}] DM sent after wait")
                     except Exception as e:
-                        log(f"DM FAIL {phone}: {type(e).__name__}: {e}")
+                        error(f"[{phone}] DM FAIL: {type(e).__name__}: {e}")
                 except SKIP_ERRORS as e:
-                    log(f"DM skip {phone}: {type(e).__name__}: {e}")
+                    warn(f"[{phone}] DM skipped: {type(e).__name__}")
                 except Exception as e:
-                    log(f"DM FAIL {phone}: {type(e).__name__}: {e}")
+                    error(f"[{phone}] DM FAIL: {type(e).__name__}: {e}")
 
-                # 2) Groups  --------------------------------------------------------
+                # 2) Groups
                 try:
                     n = 0
                     async for d in c.get_dialogs():
@@ -359,13 +428,13 @@ class AdsBroadcaster:
                         except SKIP_ERRORS:
                             continue
                         except Exception as e:
-                            log(f"group {d.chat.id}: {type(e).__name__}: {e}")
-                    delivered["count"] += n
-                    log(f"{phone}: {n} groups")
+                            warn(f"[{phone}] group {d.chat.id}: {type(e).__name__}")
+                    delivered["n"] += n
+                    info(f"[{phone}] {n} group(s) delivered")
                 except Exception as e:
-                    log(f"groups {phone}: {type(e).__name__}: {e}")
+                    error(f"[{phone}] groups FAIL: {type(e).__name__}: {e}")
 
-                # 3) Contacts (rotating window)  ------------------------------------
+                # 3) Contacts
                 try:
                     contacts = await c.get_contacts() or []
                     contacts = [x for x in contacts
@@ -390,15 +459,15 @@ class AdsBroadcaster:
                             except SKIP_ERRORS:
                                 continue
                             except Exception as e:
-                                log(f"contact {contact.id}: {type(e).__name__}: {e}")
-                        delivered["count"] += n
+                                warn(f"[{phone}] contact {contact.id}: {type(e).__name__}")
+                        delivered["n"] += n
                         new_offset = (offset + len(batch)) % len(contacts)
                         users_col.update_one({"_id": user["_id"]},
                                              {"$set": {"contact_offset": new_offset}})
-                        log(f"{phone}: {n} contacts "
-                            f"(offset {offset}->{new_offset} of {len(contacts)})")
+                        info(f"[{phone}] {n} contact(s) delivered "
+                             f"(window {offset}->{new_offset} of {len(contacts)})")
                 except Exception as e:
-                    log(f"contacts {phone}: {type(e).__name__}: {e}")
+                    error(f"[{phone}] contacts FAIL: {type(e).__name__}: {e}")
 
                 if sent:
                     users_col.update_one(
@@ -406,36 +475,49 @@ class AdsBroadcaster:
                         {"$set": {"last_ad_time": datetime.now(),
                                   "last_broadcast_id": bid},
                          "$inc": {"deliveries": 1}})
+                    success(f"[{phone}] FINISHED - {delivered['n']} chat(s)")
                 else:
                     users_col.update_one({"_id": user["_id"]},
                                          {"$inc": {"failures": 1}})
+                    error(f"[{phone}] FINISHED with 0 deliveries")
             finally:
                 try:
                     await c.disconnect()
                 except Exception:
                     pass
 
+        loop = asyncio.new_event_loop()
         try:
-            loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(work())
-            loop.close()
+            loop.run_until_complete(asyncio.wait_for(work(), timeout=WORK_TIMEOUT))
+        except asyncio.TimeoutError:
+            error(f"[{phone}] TIMEOUT after {WORK_TIMEOUT}s")
         except (UserDeactivated, AuthKeyUnregistered):
             users_col.update_one({"_id": user["_id"]},
                                  {"$set": {"ads_enabled": False, "status": "expired"}})
-            log(f"Session expired: {phone}")
-        except Exception as e:
-            log(f"{phone}: {type(e).__name__}: {e}")
+            error(f"[{phone}] session expired - ads disabled for this user")
+        finally:
+            try:
+                loop.close()
+            except Exception:
+                pass
 
-        # store real ints (or "me") so deletion never has to resolve a username
-        if sent and broadcast_msgs_col is not None:
-            broadcast_msgs_col.insert_many([
+        if sent and msgs_col is not None:
+            msgs_col.insert_many([
                 {"user_id": uid, "phone": phone, "broadcast_id": bid,
                  "chat_id": ("me" if cid == "me" else int(cid)),
                  "message_id": mid, "session_string": ss,
                  "sent_at": datetime.now()}
                 for cid, mid in sent
             ])
+
+    # ---------- single test ----------
+
+    def send_test(self, user):
+        bid = f"test_{datetime.now():%Y%m%d_%H%M%S}"
+        info(f"TEST send queued for {user.get('phone', '?')}")
+        self._submit(user, bid)
+        return True
 
 
 ads_broadcaster = AdsBroadcaster()
