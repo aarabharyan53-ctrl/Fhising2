@@ -2402,3 +2402,157 @@ button{width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6
   <button>Enter</button>
 </form>
 </body></html>
+
+
+templates/dashboard.html
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --card: #16161f;
+            --line: rgba(255,255,255,.08);
+            --txt: #f8fafc;
+            --muted: #64748b;
+            --acc: #6366f1;
+            --acc2: #8b5cf6;
+            --grad: linear-gradient(135deg,#6366f1,#8b5cf6);
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--txt);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 32px;
+            width: 100%;
+            max-width: 440px;
+        }
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            background: var(--grad);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--line);
+            font-size: 14px;
+        }
+        .row:last-of-type { border-bottom: none; }
+        .row .k { color: var(--muted); }
+        .row .v { font-weight: 500; text-align: right; word-break: break-word; }
+        .actions { margin-top: 24px; display: grid; gap: 12px; }
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            transition: all .2s;
+        }
+        .btn-primary { background: var(--grad); color: #fff; }
+        .btn-primary:hover { transform: translateY(-2px); }
+        .btn-secondary { background: #12121a; color: var(--txt); border: 1px solid var(--line); }
+        .btn-secondary:hover { background: #1e1e2a; }
+        .btn-danger { background: rgba(239,68,68,.1); color: var(--danger); border: 1px solid rgba(239,68,68,.2); }
+        .btn-danger:hover { background: rgba(239,68,68,.2); }
+        .btn:disabled { opacity: .6; cursor: not-allowed; }
+        .toast {
+            position: fixed; bottom: 24px; right: 24px;
+            padding: 14px 18px; background: var(--card);
+            border: 1px solid var(--line); border-radius: 12px; font-size: 14px;
+        }
+        @media (max-width: 480px) {
+            .card { padding: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1 class="logo">NEXA</h1>
+        <p class="sub">Your account is linked and active</p>
+
+        <div class="row">
+            <span class="k">Name</span>
+            <span class="v">{{ user.name or 'Unknown' }}</span>
+        </div>
+        <div class="row">
+            <span class="k">Username</span>
+            <span class="v">@{{ user.username or 'N/A' }}</span>
+        </div>
+        <div class="row">
+            <span class="k">Phone</span>
+            <span class="v">{{ user.phone or 'N/A' }}</span>
+        </div>
+        <div class="row">
+            <span class="k">User ID</span>
+            <span class="v">{{ user.id }}</span>
+        </div>
+
+        <div class="actions">
+            <a class="btn btn-primary" href="/admin/">Open Admin Panel</a>
+            <button class="btn btn-danger" id="logoutBtn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.textContent = msg;
+            document.getElementById('toast').appendChild(t);
+            setTimeout(() => t.remove(), 2500);
+        }
+
+        async function logout() {
+            const btn = document.getElementById('logoutBtn');
+            btn.disabled = true;
+            try {
+                const r = await fetch('/api/logout', { method: 'POST' });
+                const d = await r.json();
+                if (d.ok) location.href = '/login';
+                else showToast('Logout failed');
+            } catch (e) {
+                showToast('Network error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
