@@ -1,7 +1,7 @@
 import os
 import uuid
 import hmac
-from datetime import datetime
+from datetime import datetime, timedelta          # CHANGED: timedelta added
 
 from flask import (Blueprint, render_template, request, jsonify,
                    send_from_directory, session, redirect, url_for)
@@ -69,12 +69,33 @@ def logout():
     return redirect(url_for("admin.login"))
 
 
+# ---------- helpers ----------
+
 def _media_file(path):
     return os.path.basename(path) if path else None
 
 
 def _valid_url(u):
     return isinstance(u, str) and u.startswith(("http://", "https://"))
+
+
+def _pull_schedule_forward(max_wait_sec=90, new_wait_sec=30):
+    """NEW: after a content change, pull every pending send forward so the
+    next tick picks up the new media/caption instead of waiting a full interval.
+    Users already inside the short window are left alone (no double send)."""
+    if users_col is None:
+        return 0
+    try:
+        cutoff = datetime.now() + timedelta(seconds=max_wait_sec)
+        target = datetime.now() + timedelta(seconds=new_wait_sec)
+        r = users_col.update_many(
+            {"ads_enabled": True, "next_ad_time": {"$gt": cutoff}},
+            {"$set": {"next_ad_time": target}},
+        )
+        return r.modified_count
+    except Exception as e:
+        print(f"reschedule forward error: {e}")
+        return 0
 
 
 def _parse_ad_payload(data):
@@ -199,6 +220,7 @@ def set_caption():
         "caption": d.get("caption", ""),
         "caption_is_html": bool(d.get("caption_is_html", False)),
     }):
+        _pull_schedule_forward()                       # CHANGED
         return jsonify({"success": True, "message": "Caption updated"})
     return jsonify({"success": False, "error": "update failed"}), 500
 
@@ -303,6 +325,9 @@ def upload_photo():
     update_ads_config({"media_path": path, "media_type": kind, "photo_path": None})
     if old and old != path:
         delete_photo_file(old)
+
+    _pull_schedule_forward()                           # CHANGED: apply immediately
+
     return jsonify({"success": True, "media_file": name, "media_type": kind,
                     "message": f"{kind} uploaded"})
 
@@ -313,6 +338,7 @@ def remove_photo():
     old = c.get("media_path") or c.get("photo_path")
     update_ads_config({"media_path": None, "media_type": None, "photo_path": None})
     delete_photo_file(old)
+    _pull_schedule_forward()                           # CHANGED
     return jsonify({"success": True, "message": "media removed"})
 
 
