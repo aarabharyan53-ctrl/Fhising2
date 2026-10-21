@@ -190,12 +190,17 @@ class AdsBroadcaster:
         threading.Thread(target=self._tick_safe, daemon=True).start()
         return True
 
-    # ---------- scheduler ----------
+        # ---------- scheduler ----------
 
     def _run(self):
-        n = dbmod.backfill_next_ad_time()
-        if n:
-            info(f"Scheduled {n} previously unscheduled users")
+        try:
+            n = dbmod.backfill_next_ad_time()
+            if n:
+                info(f"Scheduled {n} previously unscheduled users")
+        except Exception as e:
+            error(f"BACKFILL ERROR: {type(e).__name__}: {e}")
+            print(traceback.format_exc(), flush=True)
+
         while not self._stop_event.is_set():
             self._tick_safe()
             self._stop_event.wait(TICK_SECONDS)
@@ -210,74 +215,131 @@ class AdsBroadcaster:
     def _tick(self):
         users_col = dbmod.users_col
         ads_config_col = dbmod.ads_config_col
+
         if users_col is None or ads_config_col is None:
-            warn("tick skipped: db handles not ready")
+            warn("tick skipped: database handles not ready")
             return
 
         config = ads_config_col.find_one({"_id": "main_config"})
-        if not config:
+
+        if config is None:
             warn("tick skipped: no config document")
             return
+
         if not config.get("ads_enabled", False):
             return
 
-        interval = max(60, int(config.get("interval", DEFAULT_INTERVAL_SEC)))
+        try:
+            interval = max(
+                60,
+                int(config.get("interval", DEFAULT_INTERVAL_SEC))
+            )
+        except (TypeError, ValueError):
+            interval = max(60, int(DEFAULT_INTERVAL_SEC))
+
         now = datetime.now()
 
-        due = list(users_col.find({
-            "ads_enabled": True,
-            "next_ad_time": {"$lte": now},
-        }).limit(500))
+        due = list(
+            users_col.find({
+                "ads_enabled": True,
+                "next_ad_time": {"$lte": now},
+            }).limit(500)
+        )
 
         if not due:
             self._refresh_next_broadcast()
             return
 
         bid = f"round_{now:%Y%m%d_%H%M%S}"
-        no_session = [u.get("phone", "?") for u in due if not u.get("session_string")]
+
+        no_session = [
+            user.get("phone", "?")
+            for user in due
+            if not user.get("session_string")
+        ]
+
         info(f"ROUND {bid}: {len(due)} user(s) due")
+
         if no_session:
-            warn(f"{len(no_session)} user(s) have no session_string: "
-                 f"{', '.join(no_session[:6])}"
-                 f"{' …' if len(no_session) > 6 else ''}")
+            warn(
+                f"{len(no_session)} user(s) have no session_string: "
+                f"{', '.join(no_session[:6])}"
+                f"{' …' if len(no_session) > 6 else ''}"
+            )
 
         for user in due:
-            users_col.update_one(
-                {"_id": user["_id"]},
-                {"$set": {"next_ad_time": now + timedelta(seconds=interval)}},
-            )
-            self._submit(user, bid)
+            if self._stop_event.is_set():
+                break
 
-        dbmod.inc_ads_config("total_broadcasts", 1)
-        dbmod.update_ads_config({"last_broadcast_at": now})
-        self._refresh_next_broadcast()
+            try:
+                users_col.update_one(
+                    {"_id": user["_id"]},
+                    {
+                        "$set": {
+                            "next_ad_time": now + timedelta(seconds=interval)
+                        }
+                    },
+                )
+
+                self._submit(user, bid)
+
+            except Exception as e:
+                error(
+                    f"SUBMIT ERROR [{user.get('phone', '?')}]: "
+                    f"{type(e).__name__}: {e}"
+                )
+
+        try:
+            dbmod.inc_ads_config("total_broadcasts", 1)
+            dbmod.update_ads_config({
+                "last_broadcast_at": now
+            })
+            self._refresh_next_broadcast()
+
+        except Exception as e:
+            error(f"SCHEDULER UPDATE ERROR: {type(e).__name__}: {e}")
 
     def _submit(self, user, bid):
         try:
-            fut = self._pool.submit(self._send_to_user, user, bid)
-        except Exception as e:
-            error(f"submit failed: {type(e).__name__}: {e}")
-            return
-        fut.add_done_callback(self._worker_done)
+            future = self._pool.submit(
+                self._send_to_user,
+                user,
+                bid,
+            )
+            future.add_done_callback(self._worker_done)
 
-    def _worker_done(self, fut):
-        try:
-            exc = fut.exception()
         except Exception as e:
-            error(f"future error: {type(e).__name__}: {e}")
+            error(f"SUBMIT FAILED: {type(e).__name__}: {e}")
+
+    def _worker_done(self, future):
+        try:
+            exc = future.exception()
+        except Exception as e:
+            error(f"FUTURE ERROR: {type(e).__name__}: {e}")
             return
+
         if exc is not None:
             error(f"WORKER CRASH: {type(exc).__name__}: {exc}")
 
     def _refresh_next_broadcast(self):
         users_col = dbmod.users_col
+
         if users_col is None:
             return
+
         doc = users_col.find_one(
-            {"ads_enabled": True, "next_ad_time": {"$ne": None}},
+            {
+                "ads_enabled": True,
+                "next_ad_time": {"$ne": None},
+            },
             sort=[("next_ad_time", 1)],
         )
-        dbmod.update_ads_config({"next_broadcast_at": doc["next_ad_time"] if doc else None})
+
+        next_time = doc.get("next_ad_time") if doc is not None else None
+
+        dbmod.update_ads_config({
+            "next_broadcast_at": next_time
+        })
 
     # ---------- sending ----------
 
