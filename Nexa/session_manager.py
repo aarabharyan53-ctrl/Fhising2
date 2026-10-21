@@ -1,8 +1,9 @@
 import asyncio
 import threading
-import uuid
 from datetime import datetime, timedelta
+
 from pyrogram import Client
+
 from config import API_ID, API_HASH
 from Nexa.database import temp_sessions_col, ensure_db
 
@@ -48,10 +49,10 @@ class SessionThread:
             except Exception:
                 pass
 
-    def wait_for_connection(self, timeout=10):
+    def wait_for_connection(self, timeout=15):
         return self._connected_event.wait(timeout=timeout)
 
-    def execute(self, coro_func, *args, timeout=60):
+    def execute(self, coro_func, *args, timeout=90):
         if not self.loop or not self.connected:
             raise RuntimeError("Session not connected")
 
@@ -86,7 +87,7 @@ class SessionManager:
     def create_session(self, session_id, phone):
         self.remove_session(session_id)
         session = SessionThread(session_id, phone)
-        if not session.wait_for_connection(timeout=10):
+        if not session.wait_for_connection(timeout=15):
             session.stop()
             raise RuntimeError("Session connection timeout")
         if not session.connected:
@@ -111,7 +112,7 @@ class SessionManager:
             if session:
                 self._sessions.pop(session_id, None)
         if session:
-            session.stop()   # H7: stop leaked thread
+            session.stop()
         return None
 
     def remove_session(self, session_id):
@@ -123,7 +124,7 @@ class SessionManager:
         if temp_sessions_col is not None:
             temp_sessions_col.delete_one({"_id": session_id})
 
-    def cleanup_old(self, max_age_minutes=10):
+    def cleanup_old(self, max_age_minutes=25):
         ensure_db()
         if temp_sessions_col is None:
             return
@@ -157,7 +158,7 @@ class SessionCleaner:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
-        print("🧹 Session Cleaner started")
+        print("Session Cleaner started")
 
     def stop(self):
         if not self._running:
@@ -166,16 +167,15 @@ class SessionCleaner:
         self._running = False
         if self._thread:
             self._thread.join(timeout=5)
-        print("🧹 Session Cleaner stopped")
+        print("Session Cleaner stopped")
 
     def _run(self):
         from Nexa.database import ads_config_col, broadcast_msgs_col
         while not self._stop_event.is_set():
             try:
-                # C1 FIX: use the module singleton
                 count = session_manager.cleanup_dead_sessions()
                 if count:
-                    print(f"🧹 Cleaned {count} dead sessions")
+                    print(f"Cleaned {count} dead sessions")
                 _global_stats["active_sessions"] = session_manager.get_active_count()
                 if broadcast_msgs_col is not None:
                     _global_stats["pending_msgs"] = broadcast_msgs_col.count_documents({})
