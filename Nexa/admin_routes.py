@@ -2,24 +2,25 @@ import os
 import uuid
 import hmac
 from datetime import datetime
+
 from flask import (Blueprint, render_template, request, jsonify,
                    send_from_directory, session, redirect, url_for)
 from bson import ObjectId
 from bson.errors import InvalidId
 from werkzeug.utils import secure_filename
+
 from config import (UPLOAD_FOLDER, MIN_INTERVAL_MIN, MAX_INTERVAL_MIN,
-                    ALLOWED_EXTENSIONS, MAX_CONTENT_LENGTH, ADMIN_PASSWORD)
+                    MAX_CONTENT_LENGTH, ADMIN_PASSWORD, BACKGROUND_VIDEO)
 from Nexa.database import (get_ads_config, update_ads_config, reset_ads_config,
                            mutate_ads, get_stats, get_all_users, users_col,
                            broadcast_msgs_col, allowed_file, delete_photo_file,
-                           media_kind)
+                           media_kind, get_videos, update_videos,
+                           reschedule_all_after_interval_change)
 from Nexa.broadcaster import ads_broadcaster
 from Nexa.session_manager import session_manager, session_cleaner
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates")
 
-
-# ---------- auth + csrf ----------
 
 def _authed():
     if not ADMIN_PASSWORD:
@@ -51,14 +52,15 @@ def _guard():
 @admin_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
-        return render_template("admin_login.html", csrf=_csrf())
+        return render_template("admin_login.html", csrf=_csrf(), bg_video=BACKGROUND_VIDEO)
     if not ADMIN_PASSWORD:
         session["admin_ok"] = True
         return redirect(url_for("admin.admin_panel"))
     if hmac.compare_digest(request.form.get("password", ""), ADMIN_PASSWORD):
         session["admin_ok"] = True
         return redirect(url_for("admin.admin_panel"))
-    return render_template("admin_login.html", csrf=_csrf(), error="Wrong password")
+    return render_template("admin_login.html", csrf=_csrf(), error="Wrong password",
+                           bg_video=BACKGROUND_VIDEO)
 
 
 @admin_bp.route("/logout")
@@ -66,8 +68,6 @@ def logout():
     session.pop("admin_ok", None)
     return redirect(url_for("admin.login"))
 
-
-# ---------- helpers ----------
 
 def _media_file(path):
     return os.path.basename(path) if path else None
@@ -78,16 +78,26 @@ def _valid_url(u):
 
 
 def _parse_ad_payload(data):
-    """Ads are buttons only. has_button toggle decides whether to include."""
-    has_button = bool(data.get("has_button"))
-    label      = (data.get("label") or "").strip()
-    url        = (data.get("url") or "").strip()
-    if has_button:
+    kind = (data.get("kind") or "button").strip().lower()
+    if kind not in ("button", "link"):
+        kind = "button"
+    url = (data.get("url") or "").strip()
+    enabled = data.get("enabled", True)
+
+    if kind == "button":
+        label = (data.get("label") or "").strip()
         if not label:
             return None, "button name required"
         if not _valid_url(url):
             return None, "invalid url"
-    return {"has_button": has_button, "label": label, "url": url}, None
+        return {"kind": "button", "label": label, "url": url, "enabled": bool(enabled)}, None
+
+    text = (data.get("text") or "").strip()
+    if not text:
+        return None, "link text required"
+    if not _valid_url(url):
+        return None, "invalid url"
+    return {"kind": "link", "text": text, "url": url, "enabled": bool(enabled)}, None
 
 
 # ---------- pages ----------
@@ -98,7 +108,8 @@ def admin_panel():
     stats = get_stats()
     stats["active_sessions"] = session_manager.get_active_count()
     stats["broadcaster_running"] = ads_broadcaster.is_running()
-    return render_template("admin.html", config=config, stats=stats, csrf=_csrf())
+    return render_template("admin.html", config=config, stats=stats,
+                           videos=get_videos(), csrf=_csrf(), bg_video=BACKGROUND_VIDEO)
 
 
 @admin_bp.route("/stats")
@@ -107,7 +118,7 @@ def admin_stats_page():
     stats["active_sessions"] = session_manager.get_active_count()
     stats["broadcaster_running"] = ads_broadcaster.is_running()
     return render_template("stats.html", stats=stats, users=get_all_users(),
-                           config=get_ads_config(), csrf=_csrf())
+                           config=get_ads_config(), csrf=_csrf(), bg_video=BACKGROUND_VIDEO)
 
 
 # ---------- api ----------
@@ -119,11 +130,13 @@ def api_config():
     return jsonify({
         "success": True,
         "ads_enabled": c.get("ads_enabled", False),
-        "interval_minutes": c.get("interval", 600) // 60,
+        "interval_minutes": c.get("interval", 1800) // 60,
         "caption": c.get("caption", ""),
+        "caption_is_html": c.get("caption_is_html", False),
         "media_file": _media_file(media),
         "media_type": c.get("media_type") or "photo",
         "ads": c.get("ads", []),
+        "videos": get_videos(),
         "delete_after_round": c.get("delete_after_round", False),
         "broadcaster_running": ads_broadcaster.is_running(),
         "limits": {"min": MIN_INTERVAL_MIN, "max": MAX_INTERVAL_MIN},
@@ -158,7 +171,7 @@ def toggle_delete_after_round():
     return jsonify({
         "success": True,
         "delete_after_round": new,
-        "message": f"Ads will {'be deleted' if new else 'be kept'} after each round",
+        "message": f"Previous ads will {'be deleted' if new else 'be kept'} before each send",
     })
 
 
@@ -173,6 +186,7 @@ def set_interval():
         return jsonify({"success": False,
                         "error": f"interval {MIN_INTERVAL_MIN}-{MAX_INTERVAL_MIN} min"}), 400
     if update_ads_config({"interval": m * 60}):
+        reschedule_all_after_interval_change(m * 60)
         return jsonify({"success": True, "minutes": m,
                         "message": f"Interval set to {m} min"})
     return jsonify({"success": False, "error": "update failed"}), 500
@@ -181,7 +195,10 @@ def set_interval():
 @admin_bp.route("/api/set-caption", methods=["POST"])
 def set_caption():
     d = request.get_json(silent=True) or {}
-    if update_ads_config({"caption": d.get("caption", "")}):
+    if update_ads_config({
+        "caption": d.get("caption", ""),
+        "caption_is_html": bool(d.get("caption_is_html", False)),
+    }):
         return jsonify({"success": True, "message": "Caption updated"})
     return jsonify({"success": False, "error": "update failed"}), 500
 
@@ -241,6 +258,30 @@ def reset_ads():
                     "message": "Ads reset to defaults"})
 
 
+# ---------- videos ----------
+
+@admin_bp.route("/api/videos", methods=["GET"])
+def api_videos():
+    return jsonify({"success": True, "videos": get_videos()})
+
+
+@admin_bp.route("/api/videos", methods=["POST"])
+def api_save_videos():
+    d = request.get_json(silent=True) or {}
+    vids = d.get("videos") or []
+    if not isinstance(vids, list):
+        return jsonify({"success": False, "error": "videos must be a list"}), 400
+    for v in vids:
+        url = (v.get("url") or "").strip()
+        if url and not _valid_url(url) and not url.startswith("/uploads/"):
+            return jsonify({"success": False, "error": f"bad url: {url}"}), 400
+    if not update_videos(vids):
+        return jsonify({"success": False, "error": "update failed"}), 500
+    return jsonify({"success": True, "videos": get_videos(), "message": "Videos saved"})
+
+
+# ---------- media ----------
+
 @admin_bp.route("/api/upload-photo", methods=["POST"])
 def upload_photo():
     if "photo" not in request.files:
@@ -289,8 +330,9 @@ def preview_ad():
         "media_file": _media_file(media),
         "media_type": c.get("media_type") or "photo",
         "caption": c.get("caption", ""),
+        "caption_is_html": c.get("caption_is_html", False),
         "ads": c.get("ads", []),
-        "interval_minutes": c.get("interval", 600) // 60,
+        "interval_minutes": c.get("interval", 1800) // 60,
         "ads_enabled": c.get("ads_enabled", False),
         "delete_after_round": c.get("delete_after_round", False),
     })
