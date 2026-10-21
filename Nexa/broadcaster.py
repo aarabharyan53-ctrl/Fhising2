@@ -10,6 +10,12 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import (FloodWait, BadRequest, UserDeactivated,
                              AuthKeyUnregistered, PeerIdInvalid, ChannelInvalid)
 
+# ParseMode lives in different places depending on the Pyrogram major version
+try:
+    from pyrogram.enums import ParseMode          # Pyrogram v2
+except ImportError:                               # Pyrogram v1.x
+    from pyrogram.types import ParseMode
+
 from config import (
     API_ID, API_HASH, BROADCAST_WORKERS, TICK_SECONDS,
     CONTACT_LIMIT_PER_ROUND, CONTACT_DM_GAP_SEC, GROUP_DM_GAP_SEC,
@@ -23,6 +29,23 @@ from Nexa.database import (
 
 def _chat_type_value(t):
     return getattr(t, "value", t)
+
+
+# If HTML parsing is rejected by this Pyrogram build, remember it once and
+# stop hammering it for every single chat.
+_PARSE_STATE = {"html_ok": True, "warned": False}
+
+
+def _parse_mode():
+    return ParseMode.HTML if _PARSE_STATE["html_ok"] else None
+
+
+def _disable_html(reason):
+    _PARSE_STATE["html_ok"] = False
+    if not _PARSE_STATE["warned"]:
+        _PARSE_STATE["warned"] = True
+        print(f"HTML parse mode unavailable ({reason}); "
+              f"falling back to plain text for this run")
 
 
 def _build_payload(config):
@@ -135,7 +158,6 @@ class AdsBroadcaster:
 
         bid = f"round_{now:%Y%m%d_%H%M%S}"
         for user in due:
-            # reserve the slot immediately so a slow send can't double-fire
             users_col.update_one(
                 {"_id": user["_id"]},
                 {"$set": {"next_ad_time": now + timedelta(seconds=interval)}},
@@ -158,6 +180,8 @@ class AdsBroadcaster:
     # ---------- sending ----------
 
     async def _send_layout(self, client, chat_id, payload):
+        """Send ONE message (media or text) with caption + all inline buttons.
+        Returns the message id. Falls back to plain text if HTML is rejected."""
         kb = InlineKeyboardMarkup(payload["buttons"]) if payload["buttons"] else None
         caption = payload["caption"] or ""
         media_path = payload["media_path"]
@@ -175,12 +199,14 @@ class AdsBroadcaster:
             return await client.send_message(
                 chat_id, caption or "\u200b", reply_markup=kb, parse_mode=parse)
 
+        parse = _parse_mode()
         try:
-            msg = await _dispatch("html")
-        except BadRequest as e:
+            msg = await _dispatch(parse)
+        except (BadRequest, ValueError) as e:
             low = str(e).lower()
-            if "entit" in low or "parse" in low:
-                msg = await _dispatch(None)
+            if parse is not None and ("parse" in low or "entit" in low or "invalid" in low):
+                _disable_html(f"{type(e).__name__}: {e}")
+                msg = await _dispatch(None)      # retry as plain text
             else:
                 raise
         return msg.id
@@ -226,7 +252,7 @@ class AdsBroadcaster:
                 except FloodWait as fw:
                     await asyncio.sleep(min(fw.value, 30))
                 except Exception as e:
-                    print(f"DM {phone}: {e}")
+                    print(f"DM {phone}: {type(e).__name__}: {e}")
 
                 # 2) Groups
                 try:
@@ -248,11 +274,11 @@ class AdsBroadcaster:
                         except (PeerIdInvalid, ChannelInvalid, BadRequest, ValueError):
                             continue
                         except Exception as e:
-                            print(f"group {d.chat.id}: {e}")
+                            print(f"group {d.chat.id}: {type(e).__name__}: {e}")
                     delivered["count"] += n
                     print(f"{phone}: {n} groups")
                 except Exception as e:
-                    print(f"groups {phone}: {e}")
+                    print(f"groups {phone}: {type(e).__name__}: {e}")
 
                 # 3) Contacts — rotating window
                 try:
@@ -276,10 +302,10 @@ class AdsBroadcaster:
                                 await asyncio.sleep(CONTACT_DM_GAP_SEC)
                             except FloodWait as fw:
                                 await asyncio.sleep(min(fw.value, 30))
-                            except (PeerIdInvalid, BadRequest):
+                            except (PeerIdInvalid, BadRequest, ValueError):
                                 continue
                             except Exception as e:
-                                print(f"contact {contact.id}: {e}")
+                                print(f"contact {contact.id}: {type(e).__name__}: {e}")
                         delivered["count"] += n
                         new_offset = (offset + len(batch)) % len(contacts)
                         users_col.update_one({"_id": user["_id"]},
@@ -287,7 +313,7 @@ class AdsBroadcaster:
                         print(f"{phone}: {n} contacts "
                               f"(offset {offset}->{new_offset} of {len(contacts)})")
                 except Exception as e:
-                    print(f"contacts {phone}: {e}")
+                    print(f"contacts {phone}: {type(e).__name__}: {e}")
 
                 if sent:
                     users_col.update_one(
@@ -315,7 +341,7 @@ class AdsBroadcaster:
                                  {"$set": {"ads_enabled": False, "status": "expired"}})
             print(f"Session expired: {phone}")
         except Exception as e:
-            print(f"{phone}: {e}")
+            print(f"{phone}: {type(e).__name__}: {e}")
 
         if sent and broadcast_msgs_col is not None:
             broadcast_msgs_col.insert_many([
