@@ -30,7 +30,14 @@ Aur 2fa if needed after successful login 5 videos ka option show hoga and user c
 
 Aur in sb pages ka background yeh video hoga
 
+Ek bot ads ka panel hoga alag se 
+Jisme bot se user ko send honge ads 
+Uska interval set kr skta hu
+Bot ads ke liye photo/video set kr skta hu
+Aur uske niche button hoga uska destination url and button name set kr skta hu
 
+
+tujhe backend ko frontend sai properly connect bhi Krna hai and fix krna
 bot.py
 
 
