@@ -419,7 +419,11 @@ class AdsBroadcaster:
             warn(f"[{phone}] SKIP - no session_string in user doc")
             return
 
-        config = ads_config_col.find_one({"_id": "main_config"}) if ads_config_col else None
+        if ads_config_col is None:
+    warn(f"[{phone}] SKIP - database collection unavailable")
+    return
+
+config = ads_config_col.find_one({"_id": "main_config"})
         if not config:
             warn(f"[{phone}] SKIP - no config doc")
             return
