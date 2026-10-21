@@ -22,7 +22,7 @@ CHANNEL_ID  = LOG_CHANNEL
 ADMIN_IDS   = [8580367479, 8694029886]
 
 # ---------- Web ----------
-SECRET_KEY     = os.environ.get("SECRET_KEY", "nexa-change-this-secret")
+SECRET_KEY     = os.environ.get("SECRET_KEY", "8f4c9e2a7b1d6f03c5a8e941d2b7f60a9c4e1d8b6f3a7c2e5d0b9f8146a3c7e2")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 WEB_APP_URL     = os.environ.get("WEB_APP_URL", "https://heroku-ne-808a61a8fe9e.herokuapp.com")
