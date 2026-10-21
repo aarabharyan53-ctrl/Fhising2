@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stats</title><link rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--card:#16161f;--line:rgba(255,255,255,.08);--txt:#f8fafc;--muted:#64748b;--grad:linear-gradient(135deg,#6366f1,#8b5cf6);--ok:#10b981;--bad:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter';background:var(--bg);color:var(--txt);padding:32px}
+.video-bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;opacity:.3}
+body::before{content:'';position:fixed;inset:0;background:rgba(8,8,14,.85);z-index:-1}
+.wrap{max-width:1200px;margin:0 auto;position:relative}
+h1{font-family:'Space Grotesk';font-size:26px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.sub{color:var(--muted);font-size:14px;margin-bottom:24px}
+a.back{color:#a5b4fc;font-size:13px;text-decoration:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:20px 0 32px}
+.s{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.s .l{font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:1px}
+.s .v{font-family:'Space Grotesk';font-size:26px;font-weight:700}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:13px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.on{color:var(--ok)}.off{color:var(--bad)}
+</style></head>
+<body>
+<video class="video-bg" autoplay muted loop playsinline src="{{ bg_video }}"></video>
+<div class="wrap">
+  <a class="back" href="./">← Back to panel</a>
+  <h1>Statistics</h1>
+  <p class="sub">Users, deliveries and scheduling overview</p>
+
+  <div class="grid">
+    <div class="s"><div class="l">Total Users</div><div class="v">{{ stats.total_users }}</div></div>
+    <div class="s"><div class="l">Subscribed</div><div class="v">{{ stats.opted_in }}</div></div>
+    <div class="s"><div class="l">Deliveries</div><div class="v">{{ stats.total_deliveries }}</div></div>
+    <div class="s"><div class="l">Active Sessions</div><div class="v">{{ stats.active_sessions }}</div></div>
+    <div class="s"><div class="l">Registered Today</div><div class="v">{{ stats.registered_today }}</div></div>
+    <div class="s"><div class="l">Pending Messages</div><div class="v">{{ stats.pending_msgs }}</div></div>
+  </div>
+
+  <table>
+    <thead><tr><th>Name</th><th>Username</th><th>Phone</th><th>Status</th><th>Ads</th><th>Deliveries</th><th>Last Ad</th><th>Next Ad</th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.name or 'Unknown' }}</td>
+        <td>{{ u.username }}</td>
+        <td>{{ u.phone }}</td>
+        <td>{{ u.status }}</td>
+        <td class="{{ 'on' if u.ads_enabled else 'off' }}">{{ 'ON' if u.ads_enabled else 'OFF' }}</td>
+        <td>{{ u.deliveries }}</td>
+        <td>{{ u.last_ad_time }}</td>
+        <td>{{ u.next_ad_time }}</td>
+      </tr>
+      {% endfor %}
+      {% if not users %}<tr><td colspan="8" style="color:#64748b">No users yet.</td></tr>{% endif %}
+    </tbody>
+  </table>
+</div>
+</body></html>
