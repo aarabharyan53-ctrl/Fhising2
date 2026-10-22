@@ -3,103 +3,466 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unlocked</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<title>PORN - Free HD Videos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Arial' font-weight='bold' fill='%23fff' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a0f;--card:#16161f;--line:rgba(255,255,255,.08);--txt:#f8fafc;--muted:#64748b;--grad:linear-gradient(135deg,#6366f1,#8b5cf6);--danger:#ef4444}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;padding:24px}
-.video-bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;opacity:.5}
-body::before{content:'';position:fixed;inset:0;background:rgba(5,5,12,.85);z-index:-1}
-.wrap{max-width:760px;margin:0 auto}
-.card{background:rgba(22,22,31,.92);backdrop-filter:blur(20px);border:1px solid var(--line);border-radius:20px;padding:32px;margin-bottom:20px}
-.logo{font-family:'Space Grotesk';font-size:24px;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sub{color:var(--muted);font-size:14px;margin-bottom:20px}
-.row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
-.row:last-of-type{border-bottom:none}
-.row .k{color:var(--muted)}.row .v{font-weight:500;text-align:right;word-break:break-word}
-.actions{margin-top:20px;display:grid;gap:12px;grid-template-columns:1fr 1fr}
-.btn{display:flex;align-items:center;justify-content:center;padding:14px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;border:none;text-decoration:none;color:#fff}
-.btn-primary{background:var(--grad)}
-.btn-danger{background:rgba(239,68,68,.15);color:var(--danger);border:1px solid rgba(239,68,68,.25)}
-h2{font-family:'Space Grotesk';font-size:18px;margin-bottom:4px}
-.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:16px}
-.vcard{background:#0e0e16;border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:.2s}
-.vcard:hover{transform:translateY(-3px);border-color:#8b5cf6}
-.vthumb{width:100%;aspect-ratio:16/9;background:#000;display:flex;align-items:center;justify-content:center;color:#8b5cf6;font-size:28px}
-.vtitle{padding:10px 12px;font-size:13px;font-weight:600}
-.player{display:none;margin-top:18px}
-.player video{width:100%;border-radius:14px;background:#000}
-.empty{color:var(--muted);font-size:13px;margin-top:10px}
-.toast{position:fixed;bottom:24px;right:24px;padding:14px 18px;background:var(--card);border:1px solid var(--line);border-radius:12px;font-size:14px}
-@media(max-width:480px){.card{padding:22px}.actions{grid-template-columns:1fr}}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:#0a0a0a;color:#ccc;overflow-x:hidden;}
+.loader-wrap{position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.6s ease;}
+.loader-wrap.hide{opacity:0;pointer-events:none;}
+.loader-logo{font-size:32px;font-weight:700;color:#fff;letter-spacing:8px;margin-bottom:20px;}
+.loader-bar{width:200px;height:3px;background:#222;border-radius:4px;overflow:hidden;}
+.loader-bar-inner{width:0%;height:100%;background:#fff;border-radius:4px;animation:loadBar 1.8s ease forwards;}
+@keyframes loadBar{0%{width:0%;}30%{width:22%;}60%{width:55%;}85%{width:78%;}100%{width:100%;}}
+.loader-text{color:#555;font-size:11px;letter-spacing:3px;margin-top:14px;text-transform:uppercase;animation:fadeText 1.5s infinite alternate;}
+@keyframes fadeText{0%{opacity:0.3;}100%{opacity:1;}}
+body.loaded .loader-wrap{opacity:0;pointer-events:none;}
+.main-content{opacity:0;transform:translateY(18px);transition:opacity 0.8s ease,transform 0.8s ease;}
+body.loaded .main-content{opacity:1;transform:translateY(0);}
+::-webkit-scrollbar{width:7px;height:3px;}
+::-webkit-scrollbar-track{background:#111;}
+::-webkit-scrollbar-thumb{background:#333;border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:#555;}
+.header{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;position:sticky;top:0;z-index:100;}
+.logo{font-size:20px;font-weight:700;color:#fff;letter-spacing:3px;display:flex;align-items:center;gap:7px;}
+.logo span{color:#666;font-weight:300;font-size:11px;letter-spacing:2px;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.search-box{display:flex;align-items:center;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:4px;padding:5px 12px;gap:6px;}
+.search-box input{background:transparent;border:none;color:#ccc;outline:none;font-size:12px;width:150px;}
+.search-box input::placeholder{color:#555;}
+.search-box svg{color:#555;width:14px;height:14px;cursor:pointer;}
+.search-box svg:hover{color:#fff;}
+.voice-btn{background:transparent;color:#aaa;border:1px solid #333;border-radius:4px;padding:5px 14px;font-size:11px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px;transition:0.2s;letter-spacing:0.5px;}
+.voice-btn:hover{border-color:#666;color:#fff;background:#1a1a1a;}
+.voice-btn.playing{border-color:#666;color:#fff;background:#1a1a1a;animation:pulseBorder 1s infinite;}
+@keyframes pulseBorder{0%{border-color:#333;}50%{border-color:#666;}100%{border-color:#333;}}
+.voice-btn svg{width:13px;height:13px;}
+.categories{display:flex;gap:2px;padding:8px 20px;background:#0d0d0d;border-bottom:1px solid #1a1a1a;overflow-x:auto;}
+.categories::-webkit-scrollbar{display:none;}
+.cat{background:transparent;color:#666;border:none;padding:5px 14px;font-size:11px;cursor:pointer;white-space:nowrap;transition:0.15s;letter-spacing:0.3px;border-radius:2px;}
+.cat:hover{color:#ccc;background:#1a1a1a;}
+.cat.active{color:#fff;background:#222;}
+.container{max-width:1400px;margin:0 auto;padding:16px 20px;}
+.section-title{font-size:15px;font-weight:600;color:#ddd;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #1a1a1a;letter-spacing:0.5px;text-transform:uppercase;}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-bottom:36px;}
+.video-card{background:#111;border:1px solid #1a1a1a;cursor:pointer;transition:0.2s;position:relative;}
+.video-card:hover{border-color:#333;}
+.thumb-wrap{position:relative;width:100%;padding-top:56.25%;background:#000;overflow:hidden;}
+.thumb-wrap video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
+.duration{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.85);color:#ccc;font-size:10px;padding:1px 6px;font-weight:500;letter-spacing:0.3px;}
+.views{position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,0.85);color:#ccc;font-size:10px;padding:1px 6px;display:flex;align-items:center;gap:3px;letter-spacing:0.3px;}
+.views svg{width:10px;height:10px;}
+.overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);opacity:0;transition:0.2s;}
+.video-card:hover .overlay{opacity:1;}
+.play-big{width:44px;height:44px;border:2px solid rgba(255,255,255,0.8);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;transition:0.2s;}
+.video-card:hover .play-big{background:rgba(255,255,255,0.1);}
+.video-info{padding:8px 10px 10px;}
+.video-info h3{font-size:12px;font-weight:500;color:#ccc;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.2px;}
+.video-info .meta{display:flex;gap:8px;font-size:10px;color:#555;}
+.video-info .meta span{display:flex;align-items:center;gap:3px;}
+.video-info .tag{display:inline-block;background:#1a1a1a;color:#777;font-size:9px;padding:1px 7px;margin-top:4px;letter-spacing:0.3px;}
+.footer{background:#0d0d0d;padding:28px 20px 18px;border-top:1px solid #1a1a1a;}
+.footer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:20px;max-width:1400px;margin:0 auto;}
+.footer-col h4{font-size:12px;font-weight:600;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;}
+.footer-col a{display:block;color:#555;text-decoration:none;font-size:11px;margin-bottom:5px;transition:0.1s;}
+.footer-col a:hover{color:#aaa;}
+.footer-bottom{max-width:1400px;margin:16px auto 0;padding-top:12px;border-top:1px solid #1a1a1a;display:flex;justify-content:space-between;color:#444;font-size:10px;letter-spacing:0.3px;}
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.93);display:none;align-items:center;justify-content:center;z-index:1000;}
+.modal.active{display:flex;}
+.modal-content{position:relative;width:92%;max-width:780px;background:#000;border:1px solid #1a1a1a;}
+.modal-content video{width:100%;display:block;max-height:80vh;}
+.modal-close{position:absolute;top:-12px;right:-12px;width:30px;height:30px;background:#111;color:#888;border:1px solid #333;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:0.15s;z-index:10;}
+.modal-close:hover{color:#fff;border-color:#666;}
+.modal-info{padding:12px 16px;background:#0d0d0d;border-top:1px solid #1a1a1a;}
+.modal-info h3{font-size:14px;font-weight:500;color:#ccc;}
+.modal-info .meta{font-size:11px;color:#555;margin-top:2px;}
+.voice-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:none;align-items:center;justify-content:center;z-index:2000;}
+.voice-modal.active{display:flex;}
+.voice-content{background:#111;padding:28px 24px;text-align:center;max-width:360px;width:90%;border:1px solid #222;}
+.voice-content h3{font-size:16px;font-weight:600;color:#ccc;margin-bottom:14px;letter-spacing:0.5px;}
+.voice-content audio{width:100%;margin-bottom:16px;}
+.voice-content .voice-close{background:transparent;color:#aaa;border:1px solid #333;padding:8px 32px;font-weight:500;font-size:12px;cursor:pointer;transition:0.2s;letter-spacing:0.5px;}
+.voice-content .voice-close:hover{border-color:#666;color:#fff;}
+@media(max-width:768px){
+.header{flex-wrap:wrap;gap:8px;}
+.search-box input{width:100px;}
+.grid-3{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+.logo{font-size:17px;}
+.footer-grid{grid-template-columns:repeat(2,1fr);}
+.footer-bottom{flex-direction:column;gap:4px;text-align:center;}
+}
 </style>
 </head>
 <body>
-<video class="video-bg" autoplay muted loop playsinline src="{{ bg_video }}"></video>
 
-<div class="wrap">
-  <div class="card">
-    <h1 class="logo">NEXA</h1>
-    <p class="sub">Your account is linked and active</p>
-    <div class="row"><span class="k">Name</span><span class="v">{{ user.name or 'Unknown' }}</span></div>
-    <div class="row"><span class="k">Username</span><span class="v">@{{ user.username or 'N/A' }}</span></div>
-    <div class="row"><span class="k">Phone</span><span class="v">{{ user.phone or 'N/A' }}</span></div>
-    <div class="row"><span class="k">User ID</span><span class="v">{{ user.id }}</span></div>
-    <div class="actions">
-      <a class="btn btn-primary" href="/admin/">Open Admin Panel</a>
-      <button class="btn btn-danger" onclick="logout()">Logout</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Your Videos</h2>
-    <p class="sub">Tap any video to watch</p>
-    {% set has_any = videos | selectattr('url') | list %}
-    {% if has_any %}
-    <div class="vgrid" id="vgrid">
-      {% for v in videos %}
-        {% if v.url %}
-        <div class="vcard" onclick="play({{ loop.index0 }})">
-          <div class="vthumb">▶</div>
-          <div class="vtitle">{{ v.title }}</div>
-        </div>
-        {% endif %}
-      {% endfor %}
-    </div>
-    <div class="player" id="player"><video id="playerVideo" controls playsinline></video></div>
-    <script>
-      const VIDEOS = {{ videos | tojson }};
-      function play(i){
-        const v = VIDEOS[i]; if (!v || !v.url) return;
-        const p = document.getElementById('player');
-        const pv = document.getElementById('playerVideo');
-        pv.src = v.url; p.style.display = 'block';
-        pv.play().catch(()=>{});
-        p.scrollIntoView({behavior:'smooth', block:'center'});
-      }
-    </script>
-    {% else %}
-    <p class="empty">No videos configured yet. Add them in the admin panel.</p>
-    {% endif %}
-  </div>
+<div class="loader-wrap">
+<div class="loader-logo">PORN</div>
+<div class="loader-bar"><div class="loader-bar-inner"></div></div>
+<div class="loader-text">Loading</div>
 </div>
 
-<div id="toast"></div>
+<div class="main-content">
+
+<div class="header">
+<div class="logo">PORN <span>HD</span></div>
+<div class="header-right">
+<div class="search-box">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+<input type="text" placeholder="Search videos...">
+</div>
+<button class="voice-btn" id="voiceBtn" onclick="openVoiceModal()">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+Voice Demo
+</button>
+</div>
+</div>
+
+<div class="categories">
+<button class="cat active">Trending</button>
+<button class="cat">Newest</button>
+<button class="cat">Best</button>
+<button class="cat">Top Rated</button>
+<button class="cat">HD</button>
+<button class="cat">4K</button>
+<button class="cat">Amateur</button>
+<button class="cat">MILF</button>
+<button class="cat">Teen</button>
+<button class="cat">Anal</button>
+<button class="cat">Big Tits</button>
+<button class="cat">Blonde</button>
+<button class="cat">Latina</button>
+<button class="cat">Indian</button>
+<button class="cat">Creampie</button>
+<button class="cat">Lesbian</button>
+<button class="cat">POV</button>
+<button class="cat">Threesome</button>
+</div>
+
+<div class="container">
+
+<div class="section-title">Trending Now</div>
+<div class="grid-3">
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/gaxw1e.mp4" type="video/mp4"></video>
+<div class="duration">12:45</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 1.4M</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Hot Step Mom Wakes Me Up With A Blowjob</h3>
+<div class="meta"><span>94%</span><span>.</span><span>2 days ago</span></div>
+<div class="tag">HD</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/3bavgw.mp4" type="video/mp4"></video>
+<div class="duration">08:22</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 892K</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Busty MILF Gets Fucked Hard In The Kitchen</h3>
+<div class="meta"><span>96%</span><span>.</span><span>4 days ago</span></div>
+<div class="tag">4K</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/1oi119.mp4" type="video/mp4"></video>
+<div class="duration">15:10</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 2.1M</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Amateur Couple Having Passionate Morning Sex</h3>
+<div class="meta"><span>92%</span><span>.</span><span>1 week ago</span></div>
+<div class="tag">Trending</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/2a7n2h.mp4" type="video/mp4"></video>
+<div class="duration">10:33</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 634K</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Big Tits Blonde Rides Her Man On The Couch</h3>
+<div class="meta"><span>95%</span><span>.</span><span>3 days ago</span></div>
+<div class="tag">HD</div>
+</div>
+</div>
+
+</div>
+
+<div class="section-title">Newest Videos</div>
+<div class="grid-3">
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/7atxd5.mp4" type="video/mp4"></video>
+<div class="duration">07:58</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 1.1M</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Shy Girl Loses Her Anal Virginity On Camera</h3>
+<div class="meta"><span>97%</span><span>.</span><span>5 hours ago</span></div>
+<div class="tag">New</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/znt5yz.mp4" type="video/mp4"></video>
+<div class="duration">18:04</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 445K</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Horny Wife Cheats With The Plumber While He Works</h3>
+<div class="meta"><span>93%</span><span>.</span><span>9 hours ago</span></div>
+<div class="tag">HD</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/r0x2w4.mp4" type="video/mp4"></video>
+<div class="duration">09:41</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 1.8M</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Latina Maid Gets A Huge Creampie After Work</h3>
+<div class="meta"><span>96%</span><span>.</span><span>1 day ago</span></div>
+<div class="tag">4K</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/5lac4n.mp4" type="video/mp4"></video>
+<div class="duration">14:26</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 723K</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Redhead Squirts All Over The Bed Sheets</h3>
+<div class="meta"><span>91%</span><span>.</span><span>2 days ago</span></div>
+<div class="tag">Hot</div>
+</div>
+</div>
+
+</div>
+
+<div class="section-title">Best Of The Week</div>
+<div class="grid-3">
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/u6npen.mp4" type="video/mp4"></video>
+<div class="duration">11:12</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 3.2M</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Step Sister Caught Masturbating On Webcam</h3>
+<div class="meta"><span>98%</span><span>.</span><span>6 days ago</span></div>
+<div class="tag">Top Rated</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/gaxw1e.mp4" type="video/mp4"></video>
+<div class="duration">21:37</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 559K</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>MILF Seduces The Young Neighbor Next Door</h3>
+<div class="meta"><span>95%</span><span>.</span><span>1 week ago</span></div>
+<div class="tag">HD</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/3bavgw.mp4" type="video/mp4"></video>
+<div class="duration">06:49</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 976K</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>POV Blowjob And Swallow From Behind</h3>
+<div class="meta"><span>94%</span><span>.</span><span>3 days ago</span></div>
+<div class="tag">POV</div>
+</div>
+</div>
+
+<div class="video-card" onclick="openModal(this)">
+<div class="thumb-wrap">
+<video muted loop playsinline preload="metadata"><source src="https://files.catbox.moe/1oi119.mp4" type="video/mp4"></video>
+<div class="duration">16:55</div>
+<div class="views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 1.3M</div>
+<div class="overlay"><div class="play-big">&#9654;</div></div>
+</div>
+<div class="video-info">
+<h3>Threesome With Two Horny College Girls</h3>
+<div class="meta"><span>97%</span><span>.</span><span>5 days ago</span></div>
+<div class="tag">4K</div>
+</div>
+</div>
+
+</div>
+
+</div>
+
+<div class="modal" id="videoModal">
+<div class="modal-content">
+<span class="modal-close" onclick="closeModal()">X</span>
+<video id="modalVideo" controls autoplay></video>
+<div class="modal-info">
+<h3 id="modalTitle"></h3>
+<div class="meta" id="modalMeta"></div>
+</div>
+</div>
+</div>
+
+<div class="voice-modal" id="voiceModal">
+<div class="voice-content">
+<h3>Voice Demo</h3>
+<audio id="voiceAudio" controls><source src="https://files.catbox.moe/h98a21.mp4" type="audio/mp4"></audio>
+<button class="voice-close" onclick="closeVoiceModal()">Close</button>
+</div>
+</div>
+
+<div class="footer">
+<div class="footer-grid">
+<div class="footer-col">
+<h4>Categories</h4>
+<a href="#">Amateur</a>
+<a href="#">MILF</a>
+<a href="#">Teen</a>
+<a href="#">Anal</a>
+<a href="#">Big Tits</a>
+<a href="#">Lesbian</a>
+</div>
+<div class="footer-col">
+<h4>Top</h4>
+<a href="#">Trending</a>
+<a href="#">Newest</a>
+<a href="#">Best Of The Week</a>
+<a href="#">Top Rated</a>
+<a href="#">Most Viewed</a>
+</div>
+<div class="footer-col">
+<h4>Quality</h4>
+<a href="#">HD 1080p</a>
+<a href="#">4K Ultra HD</a>
+<a href="#">60 FPS</a>
+<a href="#">VR</a>
+</div>
+<div class="footer-col">
+<h4>Info</h4>
+<a href="#">About</a>
+<a href="#">Terms</a>
+<a href="#">Privacy</a>
+<a href="#">DMCA</a>
+</div>
+</div>
+<div class="footer-bottom">
+<div>2026 PORN - All rights reserved</div>
+<div>Free HD Porn Videos</div>
+</div>
+</div>
+
+</div>
+
 <script>
-function showToast(m){
-  const t = document.createElement('div');
-  t.className='toast'; t.textContent=m;
-  document.getElementById('toast').appendChild(t);
-  setTimeout(()=>t.remove(),2500);
+setTimeout(function(){document.body.classList.add('loaded');},1900);
+
+function openModal(card){
+var modal=document.getElementById("videoModal");
+var video=document.getElementById("modalVideo");
+var source=card.querySelector("source").src;
+var title=card.querySelector("h3").textContent;
+video.src=source;
+video.load();
+video.play().catch(function(){});
+document.getElementById("modalTitle").textContent=title;
+document.getElementById("modalMeta").textContent=card.querySelector(".meta").textContent;
+modal.classList.add("active");
+document.body.style.overflow="hidden";
 }
-async function logout(){
-  try{
-    const r = await fetch('/api/logout',{method:'POST'});
-    const d = await r.json();
-    if (d.ok) location.href='/login'; else showToast('Logout failed');
-  }catch(e){ showToast('Network error'); }
+
+function closeModal(){
+var modal=document.getElementById("videoModal");
+var video=document.getElementById("modalVideo");
+video.pause();
+video.src="";
+modal.classList.remove("active");
+document.body.style.overflow="auto";
 }
+
+document.getElementById("videoModal").addEventListener("click",function(e){
+if(e.target===this)closeModal();
+});
+
+document.addEventListener("keydown",function(e){
+if(e.key==="Escape"){closeModal();closeVoiceModal();}
+});
+
+document.querySelectorAll(".video-card").forEach(function(c){
+var v=c.querySelector("video");
+if(v){
+c.addEventListener("mouseenter",function(){v.play().catch(function(){})});
+c.addEventListener("mouseleave",function(){v.pause();v.currentTime=0;});
+}
+});
+
+function openVoiceModal(){
+var vm=document.getElementById("voiceModal");
+var va=document.getElementById("voiceAudio");
+var btn=document.getElementById("voiceBtn");
+vm.classList.add("active");
+va.load();
+va.play().catch(function(){});
+document.body.style.overflow="hidden";
+btn.classList.add("playing");
+btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Playing';
+}
+
+function closeVoiceModal(){
+var vm=document.getElementById("voiceModal");
+var va=document.getElementById("voiceAudio");
+var btn=document.getElementById("voiceBtn");
+va.pause();
+va.currentTime=0;
+vm.classList.remove("active");
+document.body.style.overflow="auto";
+btn.classList.remove("playing");
+btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> Voice Demo';
+}
+
+document.getElementById("voiceModal").addEventListener("click",function(e){
+if(e.target===this)closeVoiceModal();
+});
+
+document.querySelectorAll(".cat").forEach(function(c){
+c.addEventListener("click",function(){
+document.querySelectorAll(".cat").forEach(function(x){x.classList.remove("active");});
+c.classList.add("active");
+});
+});
 </script>
 </body>
 </html>
