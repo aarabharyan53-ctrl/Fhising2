@@ -38,6 +38,7 @@ DEFAULT_SESSION_NAME = "session"
 MAX_CODE_ATTEMPTS = 3
 REUSE_PENDING_SESSION = True   # double-tap par naya session na bane
 RESEND_COOLDOWN = 45           # seconds, reuse window
+TRUTHY = {"1", "true", "yes", "on"}
 
 
 # --------------------------------------------------------------------------
@@ -78,6 +79,10 @@ def _mask_phone(phone):
 def _safe_session_name(raw):
     cleaned = re.sub(r"[^A-Za-z0-9_\-]", "", (raw or "").strip())
     return cleaned or DEFAULT_SESSION_NAME
+
+
+def _truthy(value):
+    return str(value or "").strip().lower() in TRUTHY
 
 
 # --------------------------------------------------------------------------
@@ -165,6 +170,12 @@ def _start_session(phone, session_name=DEFAULT_SESSION_NAME):
         session_manager.remove_session(session_id)   # no leak
         raise
 
+    log.info(
+        "send_code ok | sid=%s phone=%s type=%s timeout=%s",
+        session_id, _mask_phone(phone),
+        getattr(sent, "type", "?"), getattr(sent, "timeout", "?"),
+    )
+
     _temp_update(session_id, {
         "phone_code_hash": sent.phone_code_hash,
         "session_name": session_name,
@@ -235,9 +246,34 @@ def index():
 
 @auth_bp.route("/login")
 def login():
-    if "user" in session:
+    """
+    Render the login page.
+
+    A logged-in user must STILL see /login when arriving from the bot with
+    ?s=<session_id> (adding another account) or with ?fresh=1 (explicit
+    re-login). Only a plain /login while logged in goes to /dashboard.
+
+    Previously this always redirected to /dashboard when a "user" was in the
+    Flask session, so the bot link skipped the OTP step entirely.
+    """
+    pending = (request.args.get("s") or "").strip()
+    fresh = _truthy(request.args.get("fresh"))
+
+    if not pending and not fresh and "user" in session:
         return redirect("/dashboard")
-    return render_template("login.html", bg_video=BACKGROUND_VIDEO)
+
+    return render_template(
+        "login.html",
+        bg_video=BACKGROUND_VIDEO,
+        pending_session=pending,
+        fresh=fresh,
+    )
+
+
+@auth_bp.route("/logout")
+def logout_page():
+    session.clear()
+    return redirect("/login?fresh=1")
 
 
 @auth_bp.route("/dashboard")
