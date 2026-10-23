@@ -18,12 +18,11 @@ from Nexa.database import (get_ads_config, update_ads_config, reset_ads_config,
                            reschedule_all_after_interval_change)
 from Nexa.broadcaster import ads_broadcaster
 from Nexa.session_manager import session_manager, session_cleaner
-from Nexa.logs import get_logs, clear_logs, get_counters, reset_counters, last_error, info, warn
+from Nexa.logs import (get_logs, clear_logs, get_counters, reset_counters,
+                       last_error, info, warn, error)
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates")
 
-
-# ---------- auth + csrf ----------
 
 def _authed():
     if not ADMIN_PASSWORD:
@@ -72,8 +71,6 @@ def logout():
     return redirect(url_for("admin.login"))
 
 
-# ---------- helpers ----------
-
 def _media_file(path):
     return os.path.basename(path) if path else None
 
@@ -83,8 +80,6 @@ def _valid_url(u):
 
 
 def _pull_schedule_forward(max_wait_sec=90, new_wait_sec=30):
-    """After a content change, pull pending sends forward so the next tick
-    picks it up instead of waiting a whole interval."""
     users_col = dbmod.users_col
     if users_col is None:
         return 0
@@ -102,7 +97,6 @@ def _pull_schedule_forward(max_wait_sec=90, new_wait_sec=30):
 
 
 def _parse_ad_payload(data):
-    """Text-link only. Legacy button ads convert on save."""
     text = (data.get("text") or data.get("label") or "").strip()
     url = (data.get("url") or "").strip()
     enabled = data.get("enabled", True)
@@ -110,7 +104,7 @@ def _parse_ad_payload(data):
         return None, "link text required"
     if not _valid_url(url):
         return None, "url must start with http:// or https://"
-    return {"kind": "link", "text": text, "url": url, "enabled": bool(enabled)}, None
+    return {"text": text, "url": url, "enabled": bool(enabled)}, None
 
 
 def _media_state():
@@ -128,8 +122,6 @@ def _media_state():
             pass
     return {"configured": True, "exists": exists, "file": os.path.basename(p)}
 
-
-# ---------- pages ----------
 
 @admin_bp.route("/")
 def admin_panel():
@@ -153,8 +145,6 @@ def admin_stats_page():
                            config=get_ads_config(), csrf=_csrf(),
                            bg_video=BACKGROUND_VIDEO)
 
-
-# ---------- config api ----------
 
 @admin_bp.route("/api/config")
 def api_config():
@@ -197,10 +187,17 @@ def toggle_ads():
 
 @admin_bp.route("/api/toggle-delete-after-round", methods=["POST"])
 def toggle_delete_after_round():
-    c = get_ads_config()
-    new = not c.get("delete_after_round", False)
-    if not update_ads_config({"delete_after_round": new}):
+    col = dbmod.ads_config_col
+    if col is None:
+        return jsonify({"success": False, "error": "db down"}), 500
+    current = bool((get_ads_config() or {}).get("delete_after_round", False))
+    new = not current
+    try:
+        col.update_one({"_id": "main_config"}, {"$set": {"delete_after_round": new}})
+    except Exception as e:
+        error(f"delete toggle failed: {e}")
         return jsonify({"success": False, "error": "update failed"}), 500
+    info(f"Delete previous ads: {'ON' if new else 'OFF'}")
     return jsonify({
         "success": True,
         "delete_after_round": new,
@@ -238,8 +235,6 @@ def set_caption():
         return jsonify({"success": True, "message": "Caption updated"})
     return jsonify({"success": False, "error": "update failed"}), 500
 
-
-# ---------- ads (text links) ----------
 
 @admin_bp.route("/api/ads", methods=["POST"])
 def add_ad():
@@ -286,29 +281,6 @@ def delete_ad(ad_id):
     return jsonify({"success": True, "ads": new, "message": "Link ad deleted"})
 
 
-@admin_bp.route("/api/ads/convert-legacy", methods=["POST"])
-def convert_legacy_ads():
-    """Turn any old inline-button ads into text links."""
-    converted = {"n": 0}
-
-    def mut(ads):
-        for a in ads:
-            if a.get("kind") == "button" or "kind" not in a:
-                a["kind"] = "link"
-                a["text"] = a.get("text") or a.get("label") or "Open link"
-                a.pop("label", None)
-                a.pop("has_button", None)
-                converted["n"] += 1
-        return ads
-
-    new = mutate_ads(mut)
-    if new is None:
-        return jsonify({"success": False, "error": "update failed"}), 500
-    info(f"Converted {converted['n']} legacy button ad(s) to text links")
-    return jsonify({"success": True, "ads": new, "converted": converted["n"],
-                    "message": f"{converted['n']} ad(s) converted to text links"})
-
-
 @admin_bp.route("/api/reset-ads", methods=["POST"])
 def reset_ads():
     old_media = reset_ads_config()
@@ -320,8 +292,6 @@ def reset_ads():
     return jsonify({"success": True, "ads": get_ads_config().get("ads", []),
                     "message": "Ads reset to defaults"})
 
-
-# ---------- videos ----------
 
 @admin_bp.route("/api/videos", methods=["GET"])
 def api_videos():
@@ -343,8 +313,6 @@ def api_save_videos():
     info("Web videos updated")
     return jsonify({"success": True, "videos": get_videos(), "message": "Videos saved"})
 
-
-# ---------- media ----------
 
 @admin_bp.route("/api/upload-photo", methods=["POST"])
 def upload_photo():
@@ -406,8 +374,6 @@ def preview_ad():
         "delete_after_round": c.get("delete_after_round", False),
     })
 
-
-# ---------- broadcast control ----------
 
 @admin_bp.route("/api/broadcast-now", methods=["POST"])
 def broadcast_now():
@@ -481,8 +447,6 @@ def reschedule_user(user_id):
     return jsonify({"success": True, "message": "queued for next tick"})
 
 
-# ---------- stats / logs / diagnostics ----------
-
 @admin_bp.route("/api/stats/refresh")
 def refresh_stats():
     s = get_stats()
@@ -546,8 +510,7 @@ def diagnostics():
         f"{no_session} missing" if no_session else "")
     chk(not media["configured"] or media["exists"], "Media file present on disk",
         media["file"] or "none")
-    chk(len(active_links) > 0 if isinstance(active_links, int) else active_links > 0,
-        "At least one active ad link", f"{active_links}")
+    chk(active_links > 0, "At least one active ad link", f"{active_links}")
     chk(bool((cfg.get("caption") or "").strip()) or bool(active_links) or media["configured"],
         "Something to send (caption / link / media)")
 
