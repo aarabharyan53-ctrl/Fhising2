@@ -7,15 +7,14 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 from pyrogram import Client
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.errors import (
     FloodWait, BadRequest, UserDeactivated, AuthKeyUnregistered,
     PeerIdInvalid, ChannelInvalid, ChannelPrivate, ChatWriteForbidden,
 )
 
 try:
-    from pyrogram.enums import ParseMode          # Pyrogram v2
-except ImportError:                               # Pyrogram v1.x
+    from pyrogram.enums import ParseMode
+except ImportError:
     from pyrogram.types import ParseMode
 
 import Nexa.database as dbmod
@@ -30,8 +29,6 @@ from config import (
 SKIP_ERRORS = (PeerIdInvalid, ChannelInvalid, ChannelPrivate, ChatWriteForbidden)
 WORK_TIMEOUT = 600
 
-# ---------------------------------------------------------------- parse mode
-
 _PARSE_STATE = {"html_ok": True, "warned": False}
 
 
@@ -45,8 +42,6 @@ def _disable_html(reason):
         _PARSE_STATE["warned"] = True
         warn(f"HTML parse mode unavailable ({reason}) - using plain text")
 
-
-# ---------------------------------------------------------------- media
 
 _MEDIA_WARNED = set()
 
@@ -97,19 +92,14 @@ def _coerce_chat_id(v):
     return v
 
 
-# ---------------------------------------------------------------- payload
-
 def _build_payload(config):
-    """Never raises. Ads are text links; legacy button ads still render
-    an inline button so nothing breaks mid-migration."""
     base = config.get("caption") or ""
     if not isinstance(base, str):
         base = str(base)
     if not config.get("caption_is_html"):
         base = base.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-    buttons, link_lines = [], []
-
+    link_lines = []
     ads = config.get("ads") or []
     if not isinstance(ads, list):
         ads = []
@@ -122,16 +112,11 @@ def _build_payload(config):
         url = url.strip()
         if not url.startswith(("http://", "https://")):
             continue
-
-        if ad.get("kind") == "button":                       # legacy
-            label = (ad.get("label") or "").strip()
-            if label:
-                buttons.append([InlineKeyboardButton(label, url=url)])
-        else:                                                # text link
-            text = (ad.get("text") or ad.get("label") or "").strip()
-            if text:
-                safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                link_lines.append(f'• <a href="{url}">{safe}</a>')
+        text = (ad.get("text") or ad.get("label") or "").strip()
+        if not text:
+            continue
+        safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        link_lines.append(f'• <a href="{url}">{safe}</a>')
 
     caption = base
     if link_lines:
@@ -143,7 +128,6 @@ def _build_payload(config):
 
     return {
         "caption": caption,
-        "buttons": buttons,
         "media_path": _resolve_media(config.get("media_path") or config.get("photo_path")),
         "media_type": media_type,
         "delete_prev": bool(config.get("delete_after_round")),
@@ -156,12 +140,7 @@ class AdsBroadcaster:
         self._thread = None
         self._stop_event = threading.Event()
         self._lock = threading.Lock()
-        self._pool = ThreadPoolExecutor(
-            max_workers=BROADCAST_WORKERS,
-            thread_name_prefix="bc",
-        )
-
-    # ---------- lifecycle ----------
+        self._pool = ThreadPoolExecutor(max_workers=BROADCAST_WORKERS, thread_name_prefix="bc")
 
     def is_running(self):
         return self._running
@@ -193,8 +172,6 @@ class AdsBroadcaster:
     def run_now(self):
         threading.Thread(target=self._tick_safe, daemon=True).start()
         return True
-
-    # ---------- scheduler ----------
 
     def _run(self):
         try:
@@ -330,10 +307,7 @@ class AdsBroadcaster:
 
         dbmod.update_ads_config({"next_broadcast_at": next_time})
 
-    # ---------- sending ----------
-
     async def _send_layout(self, client, chat_id, payload):
-        kb = InlineKeyboardMarkup(payload["buttons"]) if payload["buttons"] else None
         caption = payload["caption"] or ""
         media_path = payload["media_path"]
         media_type = payload["media_type"]
@@ -345,20 +319,17 @@ class AdsBroadcaster:
                         chat_id,
                         video=media_path,
                         caption=caption,
-                        reply_markup=kb,
                         parse_mode=parse,
                     )
                 return await client.send_photo(
                     chat_id,
                     photo=media_path,
                     caption=caption,
-                    reply_markup=kb,
                     parse_mode=parse,
                 )
             return await client.send_message(
                 chat_id,
                 caption or "\u200b",
-                reply_markup=kb,
                 parse_mode=parse,
             )
 
@@ -439,8 +410,6 @@ class AdsBroadcaster:
         payload = _build_payload(config)
         info(
             f"[{phone}] start | media={'yes' if payload['media_path'] else 'no'} "
-            f"| links={sum(1 for _ in payload['caption'].split('• ')) - 1} "
-            f"| buttons={len(payload['buttons'])} "
             f"| caption={len(payload['caption'])}ch"
         )
 
@@ -466,30 +435,47 @@ class AdsBroadcaster:
                 if payload["delete_prev"]:
                     await self._delete_user_messages(c, uid, phone)
 
-                # 1) Saved Messages
                 try:
                     sent.append(("me", await self._send_layout(c, "me", payload)))
                     delivered["n"] += 1
-                    success(f"[{phone}] DM sent")
+                    success(f"[{phone}] self delivered")
                 except FloodWait as fw:
                     wait = min(int(getattr(fw, "value", 5)), 30)
-                    warn(f"[{phone}] FloodWait {wait}s on DM, retrying")
+                    warn(f"[{phone}] FloodWait {wait}s on self, retrying")
                     await asyncio.sleep(wait)
                     try:
                         sent.append(("me", await self._send_layout(c, "me", payload)))
                         delivered["n"] += 1
-                        success(f"[{phone}] DM sent after wait")
+                        success(f"[{phone}] self delivered after wait")
                     except Exception as e:
-                        error(f"[{phone}] DM FAIL: {type(e).__name__}: {e}")
+                        error(f"[{phone}] self FAIL: {type(e).__name__}: {e}")
                 except SKIP_ERRORS as e:
-                    warn(f"[{phone}] DM skipped: {type(e).__name__}")
+                    warn(f"[{phone}] self skipped: {type(e).__name__}")
                 except Exception as e:
-                    error(f"[{phone}] DM FAIL: {type(e).__name__}: {e}")
+                    error(f"[{phone}] self FAIL: {type(e).__name__}: {e}")
 
-                # 2) Groups
+                try:
+                    contacts = await c.get_contacts() or []
+                    contacts = [
+                        x for x in contacts
+                        if x is not None
+                        and not getattr(x, "is_bot", False)
+                        and not getattr(x, "is_deleted", False)
+                    ]
+                except Exception as e:
+                    error(f"[{phone}] get_contacts FAIL: {type(e).__name__}: {e}")
+                    contacts = []
+                contact_ids = {x.id for x in contacts}
+
+                try:
+                    dialogs = [d async for d in c.get_dialogs()]
+                except Exception as e:
+                    error(f"[{phone}] get_dialogs FAIL: {type(e).__name__}: {e}")
+                    dialogs = []
+
                 try:
                     n = 0
-                    async for d in c.get_dialogs():
+                    for d in dialogs:
                         if self._stop_event.is_set():
                             break
                         if not d or not d.chat:
@@ -513,15 +499,49 @@ class AdsBroadcaster:
                 except Exception as e:
                     error(f"[{phone}] groups FAIL: {type(e).__name__}: {e}")
 
-                # 3) Contacts
                 try:
-                    contacts = await c.get_contacts() or []
-                    contacts = [
-                        x for x in contacts
-                        if x is not None
-                        and not getattr(x, "is_bot", False)
-                        and not getattr(x, "is_deleted", False)
+                    dm_dialogs = [
+                        d for d in dialogs
+                        if d and d.chat
+                        and _chat_type_value(d.chat.type) == "private"
+                        and d.chat.id != me.id
+                        and d.chat.id not in contact_ids
+                        and not getattr(d.chat, "is_bot", False)
                     ]
+                    if dm_dialogs:
+                        offset = int(user.get("dm_offset") or 0) % len(dm_dialogs)
+                        rotated = dm_dialogs[offset:] + dm_dialogs[:offset]
+                        batch = rotated[:CONTACT_LIMIT_PER_ROUND]
+                        n = 0
+                        for d in batch:
+                            if self._stop_event.is_set():
+                                break
+                            try:
+                                sent.append(
+                                    (d.chat.id, await self._send_layout(c, d.chat.id, payload))
+                                )
+                                n += 1
+                                await asyncio.sleep(CONTACT_DM_GAP_SEC)
+                            except FloodWait as fw:
+                                await asyncio.sleep(min(int(getattr(fw, "value", 5)), 30))
+                            except SKIP_ERRORS:
+                                continue
+                            except Exception as e:
+                                warn(f"[{phone}] dm {d.chat.id}: {type(e).__name__}")
+                        delivered["n"] += n
+                        new_offset = (offset + len(batch)) % len(dm_dialogs)
+                        users_col.update_one(
+                            {"_id": user["_id"]},
+                            {"$set": {"dm_offset": new_offset}},
+                        )
+                        info(
+                            f"[{phone}] {n} dm(s) delivered "
+                            f"(window {offset}->{new_offset} of {len(dm_dialogs)})"
+                        )
+                except Exception as e:
+                    error(f"[{phone}] dms FAIL: {type(e).__name__}: {e}")
+
+                try:
                     if contacts:
                         offset = int(user.get("contact_offset") or 0) % len(contacts)
                         rotated = contacts[offset:] + contacts[:offset]
@@ -610,8 +630,6 @@ class AdsBroadcaster:
                 }
                 for cid, mid in sent
             ])
-
-    # ---------- single test ----------
 
     def send_test(self, user):
         bid = f"test_{datetime.now():%Y%m%d_%H%M%S}"
