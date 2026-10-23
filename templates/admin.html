@@ -88,7 +88,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
 .toggle-switch.active::after{left:27px}
 .ad-item{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:15px;margin-bottom:10px}
 .ad-item .tag{font-size:11px;color:var(--accent-secondary);font-weight:600;text-transform:uppercase}
-.ad-item .tag.legacy{color:var(--warning)}
 .ad-item .lbl{font-weight:600;margin:4px 0}
 .ad-item .url{color:var(--text-muted);font-size:12px;word-break:break-all}
 .ad-item.off{opacity:.5}
@@ -100,10 +99,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
 .ad-preview-media{width:100%;border-radius:8px;margin-bottom:8px;display:block}
 .ad-preview-caption{font-size:13px;color:#e4e6eb;white-space:pre-wrap;word-break:break-word;line-height:1.4}
 .ad-preview-caption a{color:#7dd3fc}
-.ad-preview-btn{display:block;text-align:center;padding:8px 12px;background:rgba(99,102,241,.15);border-radius:8px;color:#a5b4fc;font-size:13px;font-weight:500;margin-top:6px;text-decoration:none;border:1px solid rgba(99,102,241,.25)}
 .vrow{display:grid;grid-template-columns:1fr 2fr;gap:9px;margin-bottom:9px}
-
-/* ---- log console ---- */
 .log-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .chip{padding:6px 12px;border-radius:100px;border:1px solid var(--border-color);background:var(--glass);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .chip.active{background:var(--accent-gradient);color:#fff;border-color:transparent}
@@ -263,7 +259,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
     </div>
   </div>
 
-  <!-- ============ BROADCAST LOG ============ -->
   <div class="card" style="margin-bottom:24px">
     <div class="card-header">
       <div><h2 class="card-title">Broadcast Log</h2>
@@ -287,7 +282,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
   </div>
 </div>
 
-<!-- Interval -->
 <div class="modal-overlay" id="intervalModal" onclick="closeModalOnOverlay(event,'intervalModal')">
   <div class="modal"><div class="modal-header"><h3 class="modal-title">Set Interval</h3>
     <button class="modal-close" onclick="closeModal('intervalModal')">✕</button></div>
@@ -299,15 +293,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
   </div></div>
 </div>
 
-<!-- Ad links -->
 <div class="modal-overlay" id="adsModal" onclick="closeModalOnOverlay(event,'adsModal')">
   <div class="modal"><div class="modal-header"><h3 class="modal-title">Ad Links</h3>
     <button class="modal-close" onclick="closeModal('adsModal')">✕</button></div>
   <div class="modal-body">
     <div id="adList"><p class="muted">Loading…</p></div>
-    <div id="legacyNote" style="display:none;margin-bottom:14px">
-      <button class="btn btn-secondary btn-sm" onclick="convertLegacy(this)">Convert legacy button ads → text links</button>
-    </div>
     <hr style="border:none;border-top:1px solid var(--border-color);margin:16px 0">
     <h4 id="adFormTitle" style="font-family:'Space Grotesk';margin-bottom:12px">Add Text Link</h4>
     <input type="hidden" id="adId">
@@ -331,7 +321,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
   </div></div>
 </div>
 
-<!-- Media -->
 <div class="modal-overlay" id="photoModal" onclick="closeModalOnOverlay(event,'photoModal')">
   <div class="modal"><div class="modal-header"><h3 class="modal-title">Upload Media</h3>
     <button class="modal-close" onclick="closeModal('photoModal')">✕</button></div>
@@ -346,7 +335,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
   </div></div>
 </div>
 
-<!-- Caption -->
 <div class="modal-overlay" id="captionModal" onclick="closeModalOnOverlay(event,'captionModal')">
   <div class="modal"><div class="modal-header"><h3 class="modal-title">Edit Caption</h3>
     <button class="modal-close" onclick="closeModal('captionModal')">✕</button></div>
@@ -361,7 +349,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
   </div></div>
 </div>
 
-<!-- Videos -->
 <div class="modal-overlay" id="videosModal" onclick="closeModalOnOverlay(event,'videosModal')">
   <div class="modal"><div class="modal-header"><h3 class="modal-title">Web Videos (5 slots)</h3>
     <button class="modal-close" onclick="closeModal('videosModal')">✕</button></div>
@@ -372,7 +359,6 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
   </div></div>
 </div>
 
-<!-- Preview -->
 <div class="modal-overlay" id="previewModal" onclick="closeModalOnOverlay(event,'previewModal')">
   <div class="modal"><div class="modal-header"><h3 class="modal-title">Ad Preview</h3>
     <button class="modal-close" onclick="closeModal('previewModal')">✕</button></div>
@@ -382,14 +368,12 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(circle
   </div></div>
 </div>
 
-<!-- Diagnostics -->
 <div class="modal-overlay" id="diagModal" onclick="closeModalOnOverlay(event,'diagModal')">
   <div class="modal"><div class="modal-header"><h3 class="modal-title">Diagnostics</h3>
     <button class="modal-close" onclick="closeModal('diagModal')">✕</button></div>
   <div class="modal-body"><div id="diagBody"><p class="muted">Loading…</p></div></div>
 </div>
 
-<!-- Reset -->
 <div class="modal-overlay" id="resetModal" onclick="closeModalOnOverlay(event,'resetModal')">
   <div class="modal"><div class="modal-header"><h3 class="modal-title">Reset ads?</h3>
     <button class="modal-close" onclick="closeModal('resetModal')">✕</button></div>
@@ -439,7 +423,6 @@ async function withBusy(btn,fn){
   try{ return await fn(); } finally { if(btn){btn.disabled=false;btn.innerHTML=prev;} }
 }
 
-/* ---------- scheduler state ---------- */
 function setScheduler(running){
   const b=document.getElementById('sysBadge');
   b.classList.toggle('online',running); b.classList.toggle('offline',!running);
@@ -471,7 +454,6 @@ async function broadcastNow(btn){
   });
 }
 
-/* ---------- interval / caption ---------- */
 async function saveInterval(btn){
   const v=parseInt(document.getElementById('intervalInput').value,10);
   if(!v||v<1||v>1440){ showToast('Interval must be 1-1440 minutes','error'); return; }
@@ -491,7 +473,6 @@ async function saveCaption(btn){
 }
 function toggleCaptionHtml(){ document.getElementById('capHtmlToggle').classList.toggle('active'); }
 
-/* ---------- media ---------- */
 async function uploadPhoto(input){
   if(!input.files||!input.files[0]) return;
   const fd=new FormData(); fd.append('photo',input.files[0]);
@@ -513,22 +494,17 @@ async function removePhoto(btn){
   });
 }
 
-/* ---------- ad links ---------- */
 async function loadAds(){
   const d=await api('/config');
   ADS=d.ads||[]; renderAds();
 }
-function isLegacy(a){ return (a.kind||'link')!=='link'; }
 function renderAds(){
   const box=document.getElementById('adList');
-  const legacy=ADS.filter(isLegacy).length;
-  document.getElementById('legacyNote').style.display = legacy ? 'block' : 'none';
   if(!ADS.length){ box.innerHTML='<p class="muted">No ad links yet.</p>'; return; }
   box.innerHTML=ADS.map(a=>{
-    const lg=isLegacy(a);
     const label=a.text||a.label||'(no text)';
     return `<div class="ad-item ${a.enabled===false?'off':''}">
-      <div class="tag ${lg?'legacy':''}">${lg?'Legacy inline button':'Text link'}${a.enabled===false?' • disabled':''}</div>
+      <div class="tag">Text link${a.enabled===false?' • disabled':''}</div>
       <div class="lbl">${esc(label)}</div>
       <div class="url">${esc(a.url)}</div>
       <div class="btn-group" style="margin-top:10px">
@@ -560,7 +536,7 @@ function toggleAdEnabled(){ setAdEnabled(!AD_ENABLED); }
 
 async function saveAd(btn){
   const id=document.getElementById('adId').value;
-  const body={kind:'link', text:document.getElementById('adText').value,
+  const body={text:document.getElementById('adText').value,
               url:document.getElementById('adUrl').value, enabled:AD_ENABLED};
   if(!body.text.trim()){ showToast('Displayed text required','error'); return; }
   if(!validUrl(body.url)){ showToast('URL must start with http:// or https://','error'); return; }
@@ -578,14 +554,7 @@ async function delAd(id,btn){
     if(d.success){ ADS=d.ads; renderAds(); showToast(d.message); } else showToast(d.error||'Failed','error');
   });
 }
-async function convertLegacy(btn){
-  await withBusy(btn, async () => {
-    const d=await api('/ads/convert-legacy',{method:'POST'});
-    if(d.success){ ADS=d.ads; renderAds(); showToast(d.message); } else showToast(d.error||'Failed','error');
-  });
-}
 
-/* ---------- videos ---------- */
 function renderVideos(){
   document.getElementById('videoRows').innerHTML = VIDEOS.map((v,i)=>`
     <div class="vrow">
@@ -605,7 +574,6 @@ async function saveVideos(btn){
   });
 }
 
-/* ---------- reset / preview ---------- */
 async function doReset(btn){
   await withBusy(btn, async () => {
     const d=await api('/reset-ads',{method:'POST'});
@@ -630,16 +598,12 @@ async function openPreview(){
       : `<img class="ad-preview-media" src="${src}">`);
   }
   let cap=esc(d.caption||'');
-  const links=(d.ads||[]).filter(a=>a.enabled!==false && (a.kind||'link')==='link');
+  const links=(d.ads||[]).filter(a=>a.enabled!==false);
   if(links.length) cap += (cap?'\n\n':'') + links.map(a=>'• '+esc(a.text||a.label||'')).join('\n');
   if(cap) parts.push(`<div class="ad-preview-caption">${cap}</div>`);
-  (d.ads||[]).filter(a=>a.enabled!==false && a.kind==='button').forEach(b=>{
-    parts.push(`<a class="ad-preview-btn" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.label||'')}</a>`);
-  });
   box.innerHTML = parts.length ? parts.join('') : '<p class="muted">Nothing configured yet.</p>';
 }
 
-/* ---------- diagnostics ---------- */
 async function openDiagnostics(){
   openModal('diagModal');
   const box=document.getElementById('diagBody');
@@ -669,7 +633,6 @@ async function openDiagnostics(){
   box.innerHTML=html;
 }
 
-/* ---------- log console ---------- */
 function lineEl(rec){
   const el=document.createElement('div');
   el.className='logline '+rec.level;
@@ -731,7 +694,6 @@ async function clearLogs(){
   }
 }
 
-/* ---------- stats ---------- */
 async function refreshStats(){
   const d=await api('/stats/refresh');
   if(!d||d.success===false) return;
@@ -745,7 +707,6 @@ async function refreshStats(){
   if(typeof d.broadcaster_running==='boolean') setScheduler(d.broadcaster_running);
 }
 
-/* ---------- boot ---------- */
 (function init(){
   const hasMedia={{ 'true' if (config.media_path or config.photo_path) else 'false' }};
   const mediaFile={{ (config.media_path or config.photo_path) | tojson if (config.media_path or config.photo_path) else 'null' }};
