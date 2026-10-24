@@ -1,173 +1,35 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>root@bot :: secure shell</title>
-<link rel="icon" href="data:,">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<title>Admin Login</title>
 <style>
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;background:#03060a;color:#d6ffe9;font-family:'JetBrains Mono',ui-monospace,monospace;overflow:hidden;display:grid;place-items:center;padding:24px}
-
-#rain{position:fixed;inset:0;z-index:-2;display:block}
-.video-bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;opacity:.28;filter:saturate(.5) contrast(1.15)}
-.scanlines{position:fixed;inset:0;z-index:-1;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
-.scanlines::after{content:'';position:absolute;left:0;right:0;height:140px;background:linear-gradient(to bottom,transparent,rgba(0,255,156,.07),transparent);animation:sweep 7s linear infinite}
-@keyframes sweep{from{top:-140px}to{top:100%}}
-.vignette{position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(circle at 50% 45%,transparent 32%,rgba(0,0,0,.78) 100%)}
-
-.term{width:min(450px,100%);position:relative;background:rgba(4,12,10,.72);border:1px solid rgba(0,255,156,.25);border-radius:14px;backdrop-filter:blur(14px);box-shadow:0 0 0 1px rgba(0,255,156,.06),0 0 45px rgba(0,255,156,.13),0 26px 60px rgba(0,0,0,.75);overflow:hidden;animation:pop .5s cubic-bezier(.2,.9,.25,1)}
-@keyframes pop{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
-.term::before,.term::after{content:'';position:absolute;width:18px;height:18px;border:2px solid #00ff9c;pointer-events:none;opacity:.8}
-.term::before{top:5px;left:5px;border-right:0;border-bottom:0}
-.term::after{bottom:5px;right:5px;border-left:0;border-top:0}
-
-.bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,255,156,.07);border-bottom:1px solid rgba(0,255,156,.18);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#5ce6b0}
-.dots{display:flex;gap:5px;flex-shrink:0}
-.dots i{width:9px;height:9px;border-radius:50%;background:#1b3b32;display:block}
-.dots i:nth-child(1){background:#ff5f57}
-.dots i:nth-child(2){background:#febc2e}
-.dots i:nth-child(3){background:#28c840}
-.path{opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lock{margin-left:auto;border:1px solid rgba(0,255,156,.35);border-radius:99px;padding:2px 8px;font-size:9.5px;color:#00ff9c;flex-shrink:0}
-
-.screen{padding:20px 20px 24px}
-.boot{font-size:11px;line-height:1.75;color:#3fbf8c;min-height:96px;white-space:pre-wrap;margin-bottom:14px;word-break:break-word}
-.boot::first-line{color:#00ff9c}
-
-h1{font-family:'Share Tech Mono',monospace;font-size:clamp(21px,6vw,29px);margin:0 0 6px;letter-spacing:.14em;line-height:1.15}
-.glitch{position:relative;display:inline-block;color:#eafff6;text-shadow:0 0 10px rgba(0,255,156,.55)}
-.glitch::before,.glitch::after{content:attr(data-text);position:absolute;left:0;top:0;width:100%;pointer-events:none}
-.glitch::before{color:#00ffe1;mix-blend-mode:screen;animation:g1 3.4s steps(2,end) infinite}
-.glitch::after{color:#ff2e88;mix-blend-mode:screen;opacity:.75;animation:g2 2.9s steps(2,end) infinite}
-@keyframes g1{0%,91%,100%{clip-path:inset(0);transform:translate(0)}93%{clip-path:inset(18% 0 46% 0);transform:translate(-4px,-1px)}96%{clip-path:inset(62% 0 12% 0);transform:translate(3px,1px)}}
-@keyframes g2{0%,87%,100%{clip-path:inset(0);transform:translate(0)}90%{clip-path:inset(48% 0 26% 0);transform:translate(4px,1px)}94%{clip-path:inset(8% 0 66% 0);transform:translate(-3px,-1px)}}
-
-.sub{margin:0 0 16px;font-size:10.5px;color:#2f8f6b;letter-spacing:.07em}
-
-.err{margin:0 0 14px;padding:9px 11px;border:1px solid rgba(255,46,136,.45);background:rgba(255,46,136,.08);color:#ff9ac4;font-size:12px;border-radius:8px;animation:shake .45s}
-@keyframes shake{20%{transform:translateX(-5px)}60%{transform:translateX(5px)}}
-
-.plabel{display:block;font-size:11.5px;color:#5ce6b0;margin-bottom:8px}
-.plabel span{color:#2f8f6b}
-.field{display:flex;align-items:center;gap:9px;background:#040c0a;border:1px solid rgba(0,255,156,.22);border-radius:10px;padding:11px 12px;transition:.2s}
-.field:focus-within{border-color:#00ff9c;box-shadow:0 0 0 3px rgba(0,255,156,.1),0 0 20px rgba(0,255,156,.2)}
-.caret{color:#00ff9c;font-weight:700;flex-shrink:0}
-input[type=password]{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#eafff6;font:inherit;font-size:15px;letter-spacing:.3em}
-input[type=password]::placeholder{color:#25564a;letter-spacing:.22em}
-.blink{width:8px;height:16px;background:#00ff9c;box-shadow:0 0 10px #00ff9c;animation:bl 1.05s steps(1) infinite;flex-shrink:0}
-@keyframes bl{50%{opacity:0}}
-
-button{margin-top:14px;width:100%;padding:13px;border:1px solid #00ff9c;border-radius:10px;background:linear-gradient(135deg,rgba(0,255,156,.16),rgba(34,211,238,.1));color:#c9ffe9;font:inherit;font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;transition:.18s}
-button:hover{background:linear-gradient(135deg,rgba(0,255,156,.32),rgba(34,211,238,.18));box-shadow:0 0 26px rgba(0,255,156,.32);color:#fff;transform:translateY(-1px)}
-button:active{transform:translateY(0)}
-button.busy{pointer-events:none;color:#fff;animation:pulse .9s infinite}
-@keyframes pulse{50%{box-shadow:0 0 30px rgba(0,255,156,.55)}}
-
-.hint{margin:12px 0 0;font-size:10px;color:#2f8f6b;text-align:center;letter-spacing:.1em;text-transform:uppercase}
-
-@media (prefers-reduced-motion:reduce){#rain{display:none}.scanlines::after{animation:none}}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0f19;color:#e8ecf4}
+  video.bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:.35;z-index:0}
+  .card{position:relative;z-index:1;width:min(360px,92vw);padding:28px;border-radius:16px;
+        background:rgba(18,24,38,.92);border:1px solid #24304a;backdrop-filter:blur(8px)}
+  h1{margin:0 0 18px;font-size:20px}
+  input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #2c3a58;
+        background:#0f1524;color:#fff;font-size:15px;margin-bottom:12px}
+  button{width:100%;padding:12px;border:0;border-radius:10px;background:#3b82f6;color:#fff;
+         font-size:15px;font-weight:600;cursor:pointer}
+  button:hover{background:#2f6fd8}
+  .err{color:#ff7b7b;font-size:14px;margin:0 0 12px}
 </style>
 </head>
 <body>
-<canvas id="rain"></canvas>
-<video class="video-bg" autoplay muted loop playsinline src="{{ bg_video }}"></video>
-<div class="scanlines"></div>
-<div class="vignette"></div>
-
-<main class="term">
-  <div class="bar">
-    <span class="dots"><i></i><i></i><i></i></span>
-    <span class="path">root@bot: ~/admin — ssh</span>
-    <span class="lock">AES-256</span>
-  </div>
-  <div class="screen">
-    <div class="boot" id="boot"></div>
-    <h1><span class="glitch" data-text="ADMIN ACCESS">ADMIN ACCESS</span></h1>
-    <p class="sub">// restricted terminal · authorized personnel only</p>
-
-    {% if error %}<p class="err">[!] ACCESS DENIED :: {{ error }}</p>{% endif %}
-
-    <form method="POST" id="f" autocomplete="off">
-      <label class="plabel" for="pw">root@bot:~# <span>enter passphrase</span></label>
-      <div class="field">
-        <span class="caret">&gt;</span>
-        <input type="password" id="pw" name="password" placeholder="••••••••" autofocus required>
-        <span class="blink"></span>
-      </div>
-      <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button type="submit" id="btn"><span>[ EXECUTE ]</span></button>
-      <p class="hint" id="hint">press enter to authenticate</p>
-    </form>
-  </div>
+{% if bg_video %}<video class="bg" src="{{ bg_video }}" autoplay muted loop playsinline></video>{% endif %}
+<main class="card">
+  <h1>Admin Panel</h1>
+  {% if error %}<p class="err">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('admin.login') }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="password" name="password" placeholder="Password" autofocus required>
+    <button type="submit">Login</button>
+  </form>
 </main>
-
-<script>
-(function(){
-  var cv=document.getElementById('rain'), ctx=cv.getContext('2d');
-  var chars='アイウエオカキクケコサシスセソタチツテト01<>{}[]#$%&*+=/\\|';
-  var fs=14, w, h, cols, yy;
-
-  function resize(){
-    w=cv.width=window.innerWidth;
-    h=cv.height=window.innerHeight;
-    cols=Math.floor(w/fs);
-    yy=new Array(cols);
-    for(var i=0;i<cols;i++) yy[i]=Math.floor(Math.random()*-60);
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  function frame(){
-    ctx.fillStyle='rgba(3,6,10,0.10)';
-    ctx.fillRect(0,0,w,h);
-    ctx.font=fs+'px monospace';
-    for(var i=0;i<cols;i++){
-      var ch=chars.charAt(Math.floor(Math.random()*chars.length));
-      var x=i*fs, y=yy[i]*fs;
-      ctx.fillStyle = Math.random()>0.975 ? '#d6fff0' : '#00ff9c';
-      ctx.fillText(ch,x,y);
-      if(y>h && Math.random()>0.975) yy[i]=0;
-      yy[i]++;
-    }
-  }
-  setInterval(frame, 55);
-})();
-
-(function(){
-  var el=document.getElementById('boot');
-  var lines=[
-    '> booting secure shell ...',
-    '> kernel modules ......... [ ok ]',
-    '> mounting /auth ......... [ ok ]',
-    '> handshake AES-256-GCM .. [ ok ]',
-    '> awaiting credentials _'
-  ];
-  var li=0, ci=0;
-
-  function type(){
-    if(li>=lines.length) return;
-    var cur=lines[li];
-    var done=lines.slice(0,li).join('\n');
-    el.textContent=(done ? done+'\n' : '') + cur.slice(0,ci+1);
-    if(ci+1>=cur.length){ li++; ci=0; setTimeout(type,230); }
-    else { ci++; setTimeout(type, 15+Math.random()*22); }
-  }
-  type();
-})();
-
-(function(){
-  var f=document.getElementById('f');
-  var btn=document.getElementById('btn');
-  var hint=document.getElementById('hint');
-  f.addEventListener('submit', function(){
-    btn.classList.add('busy');
-    btn.firstChild.textContent='[ AUTHENTICATING... ]';
-    hint.textContent='verifying hash ...';
-  });
-})();
-</script>
 </body>
 </html>
