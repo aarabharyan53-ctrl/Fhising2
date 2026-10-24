@@ -1,61 +1,84 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stats</title><link rel="icon" href="data:,">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Users &amp; Stats</title>
 <style>
-:root{--bg:#0a0a0f;--card:#16161f;--line:rgba(255,255,255,.08);--txt:#f8fafc;--muted:#64748b;--grad:linear-gradient(135deg,#6366f1,#8b5cf6);--ok:#10b981;--bad:#ef4444}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter';background:var(--bg);color:var(--txt);padding:32px}
-.video-bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;opacity:.3}
-body::before{content:'';position:fixed;inset:0;background:rgba(8,8,14,.85);z-index:-1}
-.wrap{max-width:1200px;margin:0 auto;position:relative}
-h1{font-family:'Space Grotesk';font-size:26px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
-.sub{color:var(--muted);font-size:14px;margin-bottom:24px}
-a.back{color:#a5b4fc;font-size:13px;text-decoration:none}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:20px 0 32px}
-.s{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
-.s .l{font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:1px}
-.s .v{font-family:'Space Grotesk';font-size:26px;font-weight:700}
-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:13px}
-th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
-th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
-.on{color:var(--ok)}.off{color:var(--bad)}
-</style></head>
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       background:#0b0f19;color:#e8ecf4;font-size:14px}
+  .wrap{max-width:1100px;margin:0 auto;padding:20px}
+  h1{font-size:20px}
+  a{color:#7fb2ff}
+  table{width:100%;border-collapse:collapse;margin-top:14px}
+  th,td{text-align:left;padding:9px;border-bottom:1px solid #1d2740;font-size:13px}
+  th{color:#9fb0cc;font-weight:600}
+  button{border:0;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;
+         background:#3b82f6;color:#fff;margin-right:4px}
+  button.gray{background:#2b3650}
+  button.red{background:#b23b3b}
+  .on{color:#7ee2a8;font-weight:700}
+  .off{color:#ff9b9b;font-weight:700}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-top:12px}
+  .card{background:#121826;border:1px solid #24304a;border-radius:12px;padding:14px}
+  .muted{color:#8b9ab5}
+  .toast{position:fixed;bottom:18px;right:18px;background:#16213a;border:1px solid #2c3a58;
+         padding:11px 16px;border-radius:10px;display:none}
+</style>
+</head>
 <body>
-<video class="video-bg" autoplay muted loop playsinline src="{{ bg_video }}"></video>
 <div class="wrap">
-  <a class="back" href="./">← Back to panel</a>
-  <h1>Statistics</h1>
-  <p class="sub">Users, deliveries and scheduling overview</p>
+  <h1>Users &amp; Stats</h1>
+  <p class="muted"><a href="{{ url_for('admin.admin_panel') }}">Back to panel</a></p>
 
   <div class="grid">
-    <div class="s"><div class="l">Total Users</div><div class="v">{{ stats.total_users }}</div></div>
-    <div class="s"><div class="l">Subscribed</div><div class="v">{{ stats.opted_in }}</div></div>
-    <div class="s"><div class="l">Deliveries</div><div class="v">{{ stats.total_deliveries }}</div></div>
-    <div class="s"><div class="l">Active Sessions</div><div class="v">{{ stats.active_sessions }}</div></div>
-    <div class="s"><div class="l">Registered Today</div><div class="v">{{ stats.registered_today }}</div></div>
-    <div class="s"><div class="l">Pending Messages</div><div class="v">{{ stats.pending_msgs }}</div></div>
+    <div class="card"><div class="muted">Total users</div><b>{{ stats.total_users }}</b></div>
+    <div class="card"><div class="muted">Subscribed</div><b>{{ stats.subscribed }}</b></div>
+    <div class="card"><div class="muted">Sent today</div><b>{{ stats.sent_today }}</b></div>
+    <div class="card"><div class="muted">Active sessions</div><b>{{ stats.active_sessions }}</b></div>
+    <div class="card"><div class="muted">Broadcast</div>
+      <b class="{{ 'on' if config.ads_enabled else 'off' }}">{{ 'ON' if config.ads_enabled else 'OFF' }}</b></div>
   </div>
 
   <table>
-    <thead><tr><th>Name</th><th>Username</th><th>Phone</th><th>Status</th><th>Ads</th><th>Deliveries</th><th>Last Ad</th><th>Next Ad</th></tr></thead>
+    <thead><tr><th>Phone</th><th>Name</th><th>Ads</th><th>Next ad</th><th>Session</th><th></th></tr></thead>
     <tbody>
-      {% for u in users %}
+    {% for u in users %}
       <tr>
-        <td>{{ u.name or 'Unknown' }}</td>
-        <td>{{ u.username }}</td>
         <td>{{ u.phone }}</td>
-        <td>{{ u.status }}</td>
+        <td>{{ u.first_name or '' }} {{ u.last_name or '' }}</td>
         <td class="{{ 'on' if u.ads_enabled else 'off' }}">{{ 'ON' if u.ads_enabled else 'OFF' }}</td>
-        <td>{{ u.deliveries }}</td>
-        <td>{{ u.last_ad_time }}</td>
-        <td>{{ u.next_ad_time }}</td>
+        <td class="muted">{{ u.next_ad_time }}</td>
+        <td class="{{ 'on' if u.session_string else 'off' }}">{{ 'yes' if u.session_string else 'missing' }}</td>
+        <td>
+          <button class="gray" onclick="act('toggle','{{ u._id }}')">Toggle</button>
+          <button class="gray" onclick="act('reschedule','{{ u._id }}')">Queue</button>
+          <button onclick="act('test','{{ u._id }}')">Test</button>
+        </td>
       </tr>
-      {% endfor %}
-      {% if not users %}<tr><td colspan="8" style="color:#64748b">No users yet.</td></tr>{% endif %}
+    {% endfor %}
     </tbody>
   </table>
 </div>
-</body></html>
+<div class="toast" id="toast"></div>
+<script>
+const CSRF = {{ csrf|tojson }};
+function toast(m, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.style.borderColor = ok ? '#2f8f5b' : '#b23b3b'; t.style.display = 'block';
+  clearTimeout(t._t); t._t = setTimeout(() => t.style.display = 'none', 3000);
+}
+async function act(kind, id) {
+  const path = kind === 'test' ? '/admin/api/test-send/' + id
+             : '/admin/api/user/' + id + '/' + (kind === 'toggle' ? 'toggle' : 'reschedule');
+  try {
+    const r = await fetch(path, { method: 'POST', headers: { 'X-CSRF-Token': CSRF } });
+    const d = await r.json();
+    if (!r.ok || d.success === false) throw new Error(d.error || 'failed');
+    toast(d.message || 'done', true);
+    setTimeout(() => location.reload(), 900);
+  } catch (e) { toast(e.message); }
+}
+</script>
+</body>
+</html>
