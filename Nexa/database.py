@@ -6,7 +6,7 @@ import html as _html
 from datetime import datetime, timedelta
 
 import requests
-from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo import MongoClient, ASCENDING, DESCENDING, ReturnDocument
 from pymongo.errors import PyMongoError
 
 from config import (
@@ -65,6 +65,14 @@ _CFG_DEFAULTS = {
 
 # ---------------------------------------------------------------- helpers
 
+def _as_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
 def _safe(fn, default=None, label="db op"):
     try:
         return fn()
@@ -113,37 +121,54 @@ def _normalize_ad(ad):
 
 
 def _ensure_indexes():
-    if users_col is None:
-        return
+    """Create indexes. Never raises - a bad index must not kill a live
+    connection (this used to catch only PyMongoError, so an AttributeError on
+    a not-yet-bound collection tore down the whole client)."""
     try:
-        users_col.create_index([("phone", ASCENDING)])
-        users_col.create_index([("user_id", ASCENDING)])
-        users_col.create_index([("ads_enabled", ASCENDING)])
-        users_col.create_index([("next_ad_time", ASCENDING)])
-        users_col.create_index([("ads_enabled", ASCENDING),
-                                ("next_ad_time", ASCENDING)])
-        users_col.create_index([("created_at", DESCENDING)])
-        temp_sessions_col.create_index([("created_at", ASCENDING)])
-        broadcast_msgs_col.create_index([("broadcast_id", ASCENDING)])
-        broadcast_msgs_col.create_index([("user_id", ASCENDING)])
-    except PyMongoError as exc:
-        warn(f"index creation failed: {exc}", source="db")
+        if users_col is not None:
+            users_col.create_index([("phone", ASCENDING)])
+            users_col.create_index([("user_id", ASCENDING)])
+            users_col.create_index([("ads_enabled", ASCENDING)])
+            users_col.create_index([("next_ad_time", ASCENDING)])
+            users_col.create_index([("ads_enabled", ASCENDING),
+                                    ("next_ad_time", ASCENDING)])
+            users_col.create_index([("created_at", DESCENDING)])
+        if temp_sessions_col is not None:
+            temp_sessions_col.create_index([("created_at", ASCENDING)])
+        if broadcast_msgs_col is not None:
+            broadcast_msgs_col.create_index([("broadcast_id", ASCENDING)])
+            broadcast_msgs_col.create_index([("user_id", ASCENDING)])
+    except Exception as exc:
+        warn(f"index creation failed: {type(exc).__name__}: {exc}", source="db")
+
+
+def _bind(database):
+    """Bind every collection handle from a live database object."""
+    global users_col, ads_config_col, temp_sessions_col, ads_logs_col, broadcast_msgs_col
+    users_col = database.users
+    ads_config_col = database.ads_config
+    temp_sessions_col = database.temp_sessions
+    ads_logs_col = database.ads_logs
+    broadcast_msgs_col = database.broadcast_msgs
+
+
+def _unbind():
+    global users_col, ads_config_col, temp_sessions_col, ads_logs_col, broadcast_msgs_col
+    users_col = ads_config_col = temp_sessions_col = None
+    ads_logs_col = broadcast_msgs_col = None
 
 
 # ---------------------------------------------------------------- connect
 
 def _connect():
-    global mongo_client, db, db_connected
-    global users_col, ads_config_col, temp_sessions_col, ads_logs_col, broadcast_msgs_col
-    global _last_ping
+    global mongo_client, db, db_connected, _last_ping
 
     with _db_lock:
         old_client = mongo_client
         mongo_client = None
         db = None
         db_connected = False
-        users_col = ads_config_col = temp_sessions_col = None
-        ads_logs_col = broadcast_msgs_col = None
+        _unbind()
 
         if old_client is not None:
             try:
@@ -151,11 +176,13 @@ def _connect():
             except Exception:
                 pass
 
+        if not MONGODB_URI:
+            error("MONGODB_URI is not configured", source="db")
+            _last_ping = time.time()
+            return False
+
         client = None
         try:
-            if not MONGODB_URI:
-                raise ValueError("MONGODB_URI is not configured")
-
             client = MongoClient(
                 MONGODB_URI,
                 serverSelectionTimeoutMS=5000,
@@ -164,23 +191,18 @@ def _connect():
                 retryWrites=True,
                 maxPoolSize=50,
             )
-
             database = client[DB_NAME]
             client.admin.command("ping")
 
+            # Only publish the new state once the connection is proven good.
             mongo_client = client
             db = database
+            _bind(database)
             db_connected = True
-
-            users_col = db.users
-            ads_config_col = db.ads_config
-            temp_sessions_col = db.temp_sessions
-            ads_logs_col = db.ads_logs
-            broadcast_msgs_col = db.broadcast_msgs
-
             _last_ping = time.time()
+
             info("MongoDB connected", source="db")
-            _ensure_indexes()
+            _ensure_indexes()          # cannot raise now
             return True
 
         except Exception as exc:
@@ -193,8 +215,7 @@ def _connect():
             mongo_client = None
             db = None
             db_connected = False
-            users_col = ads_config_col = temp_sessions_col = None
-            ads_logs_col = broadcast_msgs_col = None
+            _unbind()
             _last_ping = time.time()
             return False
 
@@ -223,10 +244,12 @@ def init_db():
 
 def ping():
     """Force a live round-trip. Returns True/False."""
+    global _last_ping
     if mongo_client is None:
         return _connect()
     try:
         mongo_client.admin.command("ping")
+        _last_ping = time.time()
         return True
     except Exception:
         return _connect()
@@ -237,9 +260,6 @@ def is_connected():
 
 
 # ---------------------------------------------------------------- accessors
-# Use these from other modules: `from Nexa import database as dbmod` then
-# `dbmod.users_col`. Reading the module global each call means a reconnect
-# can never leave a stale collection bound to a closed client.
 
 def get_users_col():          return users_col
 def get_ads_config_col():     return ads_config_col
@@ -312,11 +332,13 @@ def save_session_to_db(session_data):
     if not ensure_db() or users_col is None:
         return False
     try:
-        interval = get_ads_config().get("interval", DEFAULT_INTERVAL_SEC)
+        interval = int(get_ads_config().get("interval") or DEFAULT_INTERVAL_SEC)
+        interval = max(60, interval)
+        now = datetime.now()
         phone = session_data["phone"]
         payload = {
             "session_string": session_data["session_string"],
-            "updated_at": datetime.now(),
+            "updated_at": now,
             "user_id": session_data["id"],
             "username": session_data.get("username"),
             "first_name": session_data.get("first_name", ""),
@@ -330,7 +352,7 @@ def save_session_to_db(session_data):
             if not existing.get("next_ad_time"):
                 users_col.update_one(
                     {"_id": existing["_id"]},
-                    {"$set": {"next_ad_time": datetime.now() + timedelta(seconds=interval)}},
+                    {"$set": {"next_ad_time": now + timedelta(seconds=interval)}},
                 )
             info(f"session refreshed for {phone}", source="db")
             return str(existing["_id"])
@@ -338,8 +360,8 @@ def save_session_to_db(session_data):
         payload.update({
             "phone": phone,
             "session_name": session_data.get("session_name"),
-            "created_at": datetime.now(),
-            "next_ad_time": datetime.now() + timedelta(seconds=interval),
+            "created_at": now,
+            "next_ad_time": now + timedelta(seconds=interval),
             "ads_enabled": True,
             "last_ad_time": None,
             "deliveries": 0,
@@ -362,10 +384,14 @@ def backfill_next_ad_time():
         return 0
     try:
         r = users_col.update_many(
-            {"next_ad_time": {"$exists": False}},
+            {"next_ad_time": {"$in": [None]}, "$or": [{"next_ad_time": {"$exists": False}}]},
             {"$set": {"next_ad_time": datetime.now()}},
         )
-        return r.modified_count
+        r2 = users_col.update_many(
+            {"next_ad_time": None},
+            {"$set": {"next_ad_time": datetime.now()}},
+        )
+        return r.modified_count + r2.modified_count
     except PyMongoError as exc:
         warn(f"backfill failed: {exc}", source="db")
         return 0
@@ -380,7 +406,12 @@ def reschedule_all_after_interval_change(interval_sec):
             {"next_ad_time": {"$gt": cap}},
             {"$set": {"next_ad_time": cap}},
         )
-        return r.modified_count
+        # users with no schedule at all should also respect the new cap
+        r2 = users_col.update_many(
+            {"next_ad_time": None},
+            {"$set": {"next_ad_time": cap}},
+        )
+        return r.modified_count + r2.modified_count
     except PyMongoError as exc:
         warn(f"reschedule failed: {exc}", source="db")
         return 0
@@ -513,19 +544,42 @@ def count_pending_messages():
 
 # ---------------------------------------------------------------- config
 
+def _new_config_doc():
+    doc = {
+        "updated_at": datetime.now(),
+        "ads": [dict(ad) for ad in DEFAULT_ADS],
+        "videos": [dict(v) for v in DEFAULT_VIDEOS],
+    }
+    doc.update(_CFG_DEFAULTS)
+    return doc
+
+
 def get_ads_config():
     if not ensure_db() or ads_config_col is None:
         return _default_config()
     try:
-        config = ads_config_col.find_one({"_id": "main_config"})
+        # Atomic create-and-return: no read-then-write race, and _id stays out
+        # of $setOnInsert so there is no field conflict.
+        config = ads_config_col.find_one_and_update(
+            {"_id": "main_config"},
+            {"$setOnInsert": _new_config_doc()},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
         if not config:
-            default_config = _default_config()
-            ads_config_col.update_one({"_id": "main_config"},
-                                      {"$setOnInsert": default_config}, upsert=True)
-            config = ads_config_col.find_one({"_id": "main_config"}) or default_config
+            return _default_config()
 
         for key, value in _CFG_DEFAULTS.items():
             config.setdefault(key, value)
+
+        # Coerce types so callers can trust them.
+        config["ads_enabled"] = _as_bool(config.get("ads_enabled"), False)
+        config["caption_is_html"] = _as_bool(config.get("caption_is_html"), False)
+        config["delete_after_round"] = _as_bool(config.get("delete_after_round"), True)
+        try:
+            config["interval"] = max(60, int(config.get("interval") or DEFAULT_INTERVAL_SEC))
+        except (TypeError, ValueError):
+            config["interval"] = DEFAULT_INTERVAL_SEC
 
         ads = config.get("ads")
         if not isinstance(ads, list):
@@ -552,6 +606,7 @@ def get_ads_config():
 
 
 def update_ads_config(updates):
+    """Write config fields and report whether the write actually landed."""
     if not ensure_db() or ads_config_col is None:
         return False
     updates = dict(updates)
@@ -559,9 +614,13 @@ def update_ads_config(updates):
     updates["updated_at"] = datetime.now()
     try:
         with _config_lock:
-            ads_config_col.update_one({"_id": "main_config"},
-                                      {"$set": updates}, upsert=True)
-        return True
+            result = ads_config_col.update_one(
+                {"_id": "main_config"},
+                {"$set": updates},
+                upsert=True,
+            )
+        # matched_count == 0 AND no upsert means nothing happened.
+        return bool(result.matched_count or result.upserted_id)
     except PyMongoError as exc:
         error(f"update_ads_config failed: {exc}", source="db")
         return False
@@ -580,6 +639,18 @@ def inc_ads_config(field, amount=1):
     except PyMongoError as exc:
         warn(f"inc_ads_config failed: {exc}", source="db")
         return False
+
+
+def set_delete_after_round(enabled):
+    """Atomic, read-back-verified setter for the delete-after-round flag.
+    Returns the persisted value, or None on failure."""
+    if not update_ads_config({"delete_after_round": bool(enabled)}):
+        return None
+    return _as_bool((get_ads_config() or {}).get("delete_after_round"), False)
+
+
+def get_delete_after_round():
+    return _as_bool((get_ads_config() or {}).get("delete_after_round"), True)
 
 
 def mutate_ads(mutator):
