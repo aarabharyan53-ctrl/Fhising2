@@ -187,16 +187,13 @@ def toggle_ads():
 
 @admin_bp.route("/api/toggle-delete-after-round", methods=["POST"])
 def toggle_delete_after_round():
-    current = bool((get_ads_config() or {}).get("delete_after_round", False))
+    current = dbmod.get_delete_after_round()
     new = not current
 
-    # Use update_ads_config so the in-memory cache is invalidated + upsert happens.
-    if not update_ads_config({"delete_after_round": new}):
-        error("delete toggle: update_ads_config returned falsy")
+    persisted = dbmod.set_delete_after_round(new)
+    if persisted is None:
+        error("delete toggle: write did not land")
         return jsonify({"success": False, "error": "update failed"}), 500
-
-    # Read back the persisted value so the UI always reflects reality.
-    persisted = bool((get_ads_config() or {}).get("delete_after_round", False))
 
     info(f"Delete previous ads: {'ON' if persisted else 'OFF'}")
     return jsonify({
