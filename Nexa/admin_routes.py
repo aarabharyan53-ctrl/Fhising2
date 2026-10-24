@@ -187,21 +187,22 @@ def toggle_ads():
 
 @admin_bp.route("/api/toggle-delete-after-round", methods=["POST"])
 def toggle_delete_after_round():
-    col = dbmod.ads_config_col
-    if col is None:
-        return jsonify({"success": False, "error": "db down"}), 500
     current = bool((get_ads_config() or {}).get("delete_after_round", False))
     new = not current
-    try:
-        col.update_one({"_id": "main_config"}, {"$set": {"delete_after_round": new}})
-    except Exception as e:
-        error(f"delete toggle failed: {e}")
+
+    # Use update_ads_config so the in-memory cache is invalidated + upsert happens.
+    if not update_ads_config({"delete_after_round": new}):
+        error("delete toggle: update_ads_config returned falsy")
         return jsonify({"success": False, "error": "update failed"}), 500
-    info(f"Delete previous ads: {'ON' if new else 'OFF'}")
+
+    # Read back the persisted value so the UI always reflects reality.
+    persisted = bool((get_ads_config() or {}).get("delete_after_round", False))
+
+    info(f"Delete previous ads: {'ON' if persisted else 'OFF'}")
     return jsonify({
         "success": True,
-        "delete_after_round": new,
-        "message": f"Previous ads will {'be deleted' if new else 'be kept'} before each send",
+        "delete_after_round": persisted,
+        "message": f"Previous ads will {'be deleted' if persisted else 'be kept'} before each send",
     })
 
 
