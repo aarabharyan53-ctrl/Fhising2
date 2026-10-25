@@ -129,7 +129,6 @@ def _build_payload(config):
         text = (ad.get("text") or ad.get("label") or "").strip()
         if not text:
             continue
-        # Properly escape ampersands in URLs for Telegram HTML anchor tags
         safe_url = url.replace("&", "&amp;")
         safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         link_lines.append(f'• <a href="{safe_url}">{safe}</a>')
@@ -390,7 +389,7 @@ class AdsBroadcaster:
                 raise
         return msg.id
 
-    # ---------- ROBUST BATCH DELETE PREVIOUS MESSAGES ----------
+    # ---------- UNIVERSAL BATCH DELETE ACROSS ALL CHATS ----------
 
     async def _delete_user_messages(self, client, uid, phone):
         msgs = dbmod.broadcast_msgs_col
@@ -433,23 +432,25 @@ class AdsBroadcaster:
                 chunk_row_ids = row_ids[i:i + BATCH_DELETE_LIMIT]
 
                 try:
-                    await client.delete_messages(chat_id, chunk_msg_ids)
+                    # revoke=True ensures messages in DMs and groups are deleted for all participants globally
+                    await client.delete_messages(chat_id, chunk_msg_ids, revoke=True)
                     msgs.delete_many({"_id": {"$in": chunk_row_ids}})
                     ok_count += len(chunk_msg_ids)
+                    info(f"[{phone}] deleted {len(chunk_msg_ids)} previous ad(s) in chat {chat_id}")
 
                 except FloodWait as fw:
                     wait = min(int(getattr(fw, "value", 5)), 30)
                     warn(f"[{phone}] FloodWait {wait}s on batch delete {chat_id}")
                     await asyncio.sleep(wait)
                     try:
-                        await client.delete_messages(chat_id, chunk_msg_ids)
+                        await client.delete_messages(chat_id, chunk_msg_ids, revoke=True)
                         msgs.delete_many({"_id": {"$in": chunk_row_ids}})
                         ok_count += len(chunk_msg_ids)
                     except Exception:
                         pass
 
                 except (PeerIdInvalid, ChannelInvalid, ChannelPrivate, ChatWriteForbidden, BadRequest) as e:
-                    warn(f"[{phone}] delete {chat_id} unrecoverable ({type(e).__name__}): {e}")
+                    warn(f"[{phone}] delete {chat_id} unrecoverable ({type(e).__name__}): {e} — purging tracking")
                     msgs.delete_many({"_id": {"$in": chunk_row_ids}})
                     purged_count += len(chunk_msg_ids)
 
@@ -464,7 +465,7 @@ class AdsBroadcaster:
                             retry_count += 1
 
         info(
-            f"[{phone}] delete prev: {ok_count} deleted, {retry_count} queued for retry, "
+            f"[{phone}] universal delete summary: {ok_count} deleted across all chats, {retry_count} queued for retry, "
             f"{purged_count} purged/unrecoverable ({len(rows)} total rows)"
         )
 
@@ -504,7 +505,7 @@ class AdsBroadcaster:
 
         payload = _build_payload(config)
         info(
-            f"[{phone}] start | media={'yes' if payload['media_path'] else 'no'} "
+            f"[{phone}] start | media={'yes' + str(bool(payload['media_path'])) if payload['media_path'] else 'no'} "
             f"| caption={len(payload['caption'])}ch | delete_prev={payload['delete_prev']}"
         )
 
@@ -527,7 +528,7 @@ class AdsBroadcaster:
                     raise AuthKeyUnregistered("bad session")
                 c.me = me
 
-                # 1) Delete previous ads FIRST (if toggle ON)
+                # 1) Delete previous ads across ALL chats FIRST (if toggle ON)
                 if payload["delete_prev"]:
                     await self._delete_user_messages(c, uid, phone)
 
