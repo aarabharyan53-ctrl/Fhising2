@@ -129,8 +129,10 @@ def _build_payload(config):
         text = (ad.get("text") or ad.get("label") or "").strip()
         if not text:
             continue
+        # Properly escape ampersands in URLs for Telegram HTML anchor tags
+        safe_url = url.replace("&", "&amp;")
         safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        link_lines.append(f'• <a href="{url}">{safe}</a>')
+        link_lines.append(f'• <a href="{safe_url}">{safe}</a>')
 
     caption = base
     if link_lines:
@@ -308,8 +310,6 @@ class AdsBroadcaster:
         dbmod.update_ads_config({"next_broadcast_at": next_time})
 
     # ---------- ROBUST FETCHERS ----------
-    # Retry once on transient failures so groups/DMs/contacts aren't silently
-    # lost. FloodWait is honored with a sleep. Return [] only after retries.
 
     async def _fetch_dialogs_safe(self, client, phone):
         for attempt in range(2):
@@ -390,80 +390,82 @@ class AdsBroadcaster:
                 raise
         return msg.id
 
-    # ---------- DELETE PREVIOUS (reliable now) ----------
-    # Only PURGES tracking rows that:
-    #   - succeeded in deleting, OR
-    #   - hit an unrecoverable error (chat gone / forbidden / private), OR
-    #   - exceeded DELETE_MAX_ATTEMPTS
-    # Transient errors keep the row so next round retries.
+    # ---------- ROBUST BATCH DELETE PREVIOUS MESSAGES ----------
 
     async def _delete_user_messages(self, client, uid, phone):
         msgs = dbmod.broadcast_msgs_col
         if msgs is None:
             warn(f"[{phone}] delete skipped: broadcast_msgs_col unavailable")
             return
+        
         rows = list(msgs.find({"user_id": uid}))
         if not rows:
             info(f"[{phone}] no previous messages to delete")
             return
 
-        ok = 0
-        kept = 0
-        purged = 0
-
+        chat_to_msgs = {}
         for row in rows:
             chat_id = _coerce_chat_id(row.get("chat_id"))
             msg_id = row.get("message_id")
             if chat_id is None or msg_id is None:
-                # Corrupt row — drop it
                 msgs.delete_one({"_id": row["_id"]})
-                purged += 1
                 continue
-            attempts = int(row.get("delete_attempts", 0))
+            
+            if chat_id not in chat_to_msgs:
+                chat_to_msgs[chat_id] = []
+            chat_to_msgs[chat_id].append((row["_id"], msg_id, int(row.get("delete_attempts", 0))))
 
-            try:
-                await client.delete_messages(chat_id, msg_id)
-                msgs.delete_one({"_id": row["_id"]})
-                ok += 1
-                continue
-            except FloodWait as fw:
-                wait = min(int(getattr(fw, "value", 5)), 30)
-                warn(f"[{phone}] FloodWait {wait}s on delete {chat_id}")
-                await asyncio.sleep(wait)
+        ok_count = 0
+        purged_count = 0
+        retry_count = 0
+        BATCH_DELETE_LIMIT = 100
+
+        for chat_id, items in chat_to_msgs.items():
+            if self._stop_event.is_set():
+                break
+
+            row_ids = [item[0] for item in items]
+            msg_ids = [item[1] for item in items]
+            attempts = items[0][2]
+
+            for i in range(0, len(msg_ids), BATCH_DELETE_LIMIT):
+                chunk_msg_ids = msg_ids[i:i + BATCH_DELETE_LIMIT]
+                chunk_row_ids = row_ids[i:i + BATCH_DELETE_LIMIT]
+
                 try:
-                    await client.delete_messages(chat_id, msg_id)
-                    msgs.delete_one({"_id": row["_id"]})
-                    ok += 1
-                    continue
-                except Exception:
-                    pass
-            except (PeerIdInvalid, ChannelInvalid, ChannelPrivate, ChatWriteForbidden) as e:
-                # Chat is unreachable — message cannot be deleted, drop tracking
-                warn(f"[{phone}] delete {chat_id} unrecoverable: {type(e).__name__}")
-                msgs.delete_one({"_id": row["_id"]})
-                purged += 1
-                continue
-            except Exception as e:
-                warn(f"[{phone}] delete {chat_id} failed: {type(e).__name__}: {e}")
+                    await client.delete_messages(chat_id, chunk_msg_ids)
+                    msgs.delete_many({"_id": {"$in": chunk_row_ids}})
+                    ok_count += len(chunk_msg_ids)
 
-            # Transient failure — retry or give up
-            if attempts + 1 >= DELETE_MAX_ATTEMPTS:
-                error(
-                    f"[{phone}] delete {chat_id} giving up after "
-                    f"{DELETE_MAX_ATTEMPTS} attempts — dropping tracking"
-                )
-                msgs.delete_one({"_id": row["_id"]})
-                purged += 1
-            else:
-                msgs.update_one(
-                    {"_id": row["_id"]},
-                    {"$inc": {"delete_attempts": 1}},
-                )
-                kept += 1
+                except FloodWait as fw:
+                    wait = min(int(getattr(fw, "value", 5)), 30)
+                    warn(f"[{phone}] FloodWait {wait}s on batch delete {chat_id}")
+                    await asyncio.sleep(wait)
+                    try:
+                        await client.delete_messages(chat_id, chunk_msg_ids)
+                        msgs.delete_many({"_id": {"$in": chunk_row_ids}})
+                        ok_count += len(chunk_msg_ids)
+                    except Exception:
+                        pass
+
+                except (PeerIdInvalid, ChannelInvalid, ChannelPrivate, ChatWriteForbidden, BadRequest) as e:
+                    warn(f"[{phone}] delete {chat_id} unrecoverable ({type(e).__name__}): {e}")
+                    msgs.delete_many({"_id": {"$in": chunk_row_ids}})
+                    purged_count += len(chunk_msg_ids)
+
+                except Exception as e:
+                    warn(f"[{phone}] delete {chat_id} batch failed: {type(e).__name__}: {e}")
+                    for r_id in chunk_row_ids:
+                        if attempts + 1 >= DELETE_MAX_ATTEMPTS:
+                            msgs.delete_one({"_id": r_id})
+                            purged_count += 1
+                        else:
+                            msgs.update_one({"_id": r_id}, {"$inc": {"delete_attempts": 1}})
+                            retry_count += 1
 
         info(
-            f"[{phone}] delete prev: {ok} ok, {kept} retry next round, "
-            f"{purged} unrecoverable ({len(rows)} total)"
+            f"[{phone}] delete prev: {ok_count} deleted, {retry_count} queued for retry, "
+            f"{purged_count} purged/unrecoverable ({len(rows)} total rows)"
         )
 
     # ---------- WORKER ----------
@@ -707,7 +709,6 @@ class AdsBroadcaster:
                 pass
 
         # 8) Track sent messages (chunked, tolerant per-chunk)
-        # This is what makes delete_prev work next round.
         if sent and msgs_col is not None:
             docs = []
             for cid, mid in sent:
