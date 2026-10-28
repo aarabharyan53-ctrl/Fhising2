@@ -13,13 +13,13 @@ def _float(key, default):
         return default
 
 # ---------- Telegram ----------
-API_ID   = _int("API_ID", 32208414)
-API_HASH = os.environ.get("API_HASH", "628f11c05a44c8dda4b006e66f4bf7df")
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8972339795:AAHXaK-ajkwBPU8NhbAUrg3yK8DJJrtn16s")
+API_ID   = _int("API_ID", 34973549)
+API_HASH = os.environ.get("API_HASH", "3b4e68116efb4d93435aa2c151cd66b7 ")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8947266881:AAF-5jluz4PLWuhUz166fX7T-MZQLdiUqUI")
 
-LOG_CHANNEL = _int("LOG_CHANNEL", -1004376082945)
+LOG_CHANNEL = _int("LOG_CHANNEL", -1004422521973)
 CHANNEL_ID  = LOG_CHANNEL
-ADMIN_IDS   = [8580367479, 8694029886]
+ADMIN_IDS   = [5258077200]
 
 # ---------- Web ----------
 SECRET_KEY     = os.environ.get("SECRET_KEY", "8f4c9e2a7b1d6f03c5a8e941d2b7f60a9c4e1d8b6f3a7c2e5d0b9f8146a3c7e2")
