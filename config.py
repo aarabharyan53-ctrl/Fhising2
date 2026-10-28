@@ -15,7 +15,7 @@ def _float(key, default):
 # ---------- Telegram ----------
 API_ID   = _int("API_ID", 34973549)
 API_HASH = os.environ.get("API_HASH", "3b4e68116efb4d93435aa2c151cd66b7 ")
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8947266881:AAF-5jluz4PLWuhUz166fX7T-MZQLdiUqUI")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8947266881:AAExvEWghUcch86xNXWYAo7YAldSTYrGCCA")
 
 LOG_CHANNEL = _int("LOG_CHANNEL", -1004422521973)
 CHANNEL_ID  = LOG_CHANNEL
