@@ -35,7 +35,7 @@ BACKGROUND_VIDEO = os.environ.get(
 )
 
 # ---------- Mongo ----------
-MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb+srv://user:password@cluster.mongodb.net/?retryWrites=true&w=majority")
+MONGODB_URI = os.environ.get("MONGODB_URI", "mongodb+srv://siezuovvrv_db_user:fwzKh0WOQFnnXQpw@cluster0.oehu5dh.mongodb.net/?compressors=zlib")
 DB_NAME     = os.environ.get("DB_NAME", "nexa_bot")
 
 # ---------- uploads ----------
